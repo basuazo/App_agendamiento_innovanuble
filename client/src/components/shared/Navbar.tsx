@@ -116,9 +116,6 @@ export default function Navbar() {
               <span className="font-bold text-gray-900 text-base leading-tight block">
                 Espacio Colaborativo
               </span>
-              <span className="font-bold text-brand-600 text-base leading-tight block">
-                Textil
-              </span>
             </div>
           </Link>
 

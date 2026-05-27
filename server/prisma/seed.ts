@@ -275,7 +275,7 @@ async function main() {
     data: [
       {
         userId: admin.id,
-        content: '¡Bienvenidas al espacio textil! Recuerden respetar los horarios y dejar las máquinas en buen estado.',
+        content: '¡Bienvenidas al espacio colaborativo! Recuerden respetar los horarios y dejar las máquinas en buen estado.',
         tag: 'GENERAL',
         spaceId: SPACE_IDS.puenteAlto,
       },
