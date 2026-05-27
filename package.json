@@ -1,0 +1,25 @@
+{
+  "name": "cowork-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "build:prod": "cd client && npm run build && cd ../server && npm run build",
+    "start": "cd server && npm run start",
+    "seed": "cd server && npm run seed",
+    "db:migrate": "cd server && npx prisma migrate dev",
+    "db:migrate:prod": "cd server && npx prisma migrate deploy",
+    "db:studio": "cd server && npx prisma studio",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prisma": "^5.22.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  }
+}

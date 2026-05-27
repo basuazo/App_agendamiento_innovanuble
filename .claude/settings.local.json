@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install helmet express-rate-limit pino pino-http)",
+      "Bash(node -e \"require\\(''helmet''\\); require\\(''express-rate-limit''\\); require\\(''pino''\\); require\\(''pino-http''\\); console.log\\(''all ok''\\)\")"
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-50: #f0f9ff;
+  --brand-100: #e0f2fe;
+  --brand-500: #0ea5e9;
+  --brand-600: #0284c7;
+  --brand-700: #0369a1;
+}
+
+/* FullCalendar customización */
+.fc .fc-toolbar-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.fc .fc-button {
+  background-color: var(--brand-600) !important;
+  border-color: var(--brand-600) !important;
+  font-size: 0.75rem !important;
+  padding: 0.3rem 0.75rem !important;
+  border-radius: 0.5rem !important;
+}
+
+.fc .fc-button:hover {
+  background-color: var(--brand-700) !important;
+  border-color: var(--brand-700) !important;
+}
+
+.fc .fc-button-active {
+  background-color: var(--brand-700) !important;
+  border-color: var(--brand-700) !important;
+}
+
+.fc .fc-event {
+  border-radius: 4px !important;
+  cursor: pointer;
+}
+
+.fc .fc-timegrid-slot {
+  height: 3rem;
+}
+
+.fc .fc-col-header-cell {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+/* Horarios fuera del horario de atención — fondo rojo claro */
+.fc .fc-non-business {
+  background: rgba(239, 68, 68, 0.08) !important;
+  cursor: pointer;
+}

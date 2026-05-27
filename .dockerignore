@@ -1,0 +1,46 @@
+# Dependencias
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Builds locales
+client/dist/
+server/dist/
+server/public/
+
+# Archivos de entorno (se pasan en runtime)
+.env
+server/.env
+client/.env
+*.env.local
+*.env.*.local
+
+# Git
+.git/
+.gitignore
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests
+coverage/
+server/coverage/
+client/coverage/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Claude / IA
+.claude/

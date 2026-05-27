@@ -1,0 +1,320 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../server/node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  LIDER_COMUNITARIA
+  USER
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REJECTED
+}
+
+enum BookingPurpose {
+  LEARN
+  PRODUCE
+  DESIGN
+  REUNION
+}
+
+enum CommentTag {
+  GENERAL
+  MACHINE_ISSUE
+  ORDER
+  CLEANING
+}
+
+enum CompanionRelation {
+  CUIDADOS
+  AMISTAD
+  OTRO
+}
+
+enum EnrollmentStatus {
+  CONFIRMED
+  WAITLIST
+}
+
+model Space {
+  id                  String   @id @default(cuid())
+  name                String
+  isActive            Boolean  @default(true)
+  maxCapacity         Int      @default(12)
+  maxCapacityReunion  Int      @default(12)
+  maxBookingMinutes   Int      @default(240) // límite de duración de reserva en minutos (30–240, intervalos de 30)
+  lunchBreakEnabled   Boolean  @default(false)
+  lunchBreakStart     String?  // "13:00" — hora de inicio de colación
+  lunchBreakEnd       String?  // "14:00" — hora de término de colación
+  logoUrl             String?
+  primaryColor        String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  users         User[]
+  categories    Category[]
+  resources     Resource[]
+  trainings     Training[]
+  maintenances  Maintenance[]
+  comments      Comment[]
+  businessHours BusinessHours[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   // "RECTA_CASERA" — usado para lógica de negocio interna
+  color     String   @default("#6b7280")
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  spaceId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  space                 Space                  @relation(fields: [spaceId], references: [id])
+  resources             Resource[]
+  certifications        Certification[]
+
+  @@unique([spaceId, slug])
+}
+
+model User {
+  id               String    @id @default(cuid())
+  name             String
+  email            String    @unique
+  password         String
+  organization     String?   // Agrupación u Organización a la que pertenece
+  phone            String?   // Teléfono de contacto
+  role             Role      @default(USER)
+  isVerified       Boolean   @default(false)
+  spaceId          String?   // null para SUPER_ADMIN
+  deletedAt        DateTime? // soft delete: null = activo, fecha = eliminado
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  space                 Space?                @relation(fields: [spaceId], references: [id])
+  bookings              Booking[]
+  comments              Comment[]
+  trainingsCreated      Training[]            @relation("TrainingCreator")
+  maintenancesCreated   Maintenance[]         @relation("MaintenanceCreator")
+  trainingEnrollments   TrainingEnrollment[]
+  certifications        Certification[]       @relation("UserCertifications")
+  certificationsMade    Certification[]       @relation("CertifierCertifications")
+  auditLogs             AuditLog[]            @relation("AuditLogs")
+  notifications         Notification[]
+}
+
+model Resource {
+  id                    String   @id @default(cuid())
+  name                  String
+  description           String?
+  categoryId            String
+  requiresCertification Boolean  @default(true)
+  capacity              Int      @default(1)
+  imageUrl              String?
+  isActive              Boolean  @default(true)
+  spaceId               String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  space              Space               @relation(fields: [spaceId], references: [id])
+  category           Category            @relation(fields: [categoryId], references: [id])
+  bookings           Booking[]
+  trainingExemptions TrainingExemption[]
+}
+
+model Booking {
+  id                    String         @id @default(cuid())
+  userId                String
+  resourceId            String
+  startTime             DateTime
+  endTime               DateTime
+  notes                 String?
+  purpose               BookingPurpose
+  produceItem           String?
+  produceQty            Int?
+  quantity              Int                @default(1)
+  isPrivate             Boolean            @default(false)
+  attendees             Int                @default(1)
+  companionRelation     CompanionRelation?
+  status                BookingStatus      @default(CONFIRMED)
+  isExceptional         Boolean            @default(false)   // reserva fuera de horario habitual (solo admins)
+  googleCalendarEventId String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id])
+  resource Resource @relation(fields: [resourceId], references: [id])
+
+  @@index([userId])
+  @@index([resourceId])
+  @@index([status])
+  @@index([startTime, endTime])
+}
+
+model Training {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  capacity    Int       @default(10)
+  createdBy   String
+  spaceId     String
+  createdAt   DateTime  @default(now())
+
+  space       Space                @relation(fields: [spaceId], references: [id])
+  creator     User                 @relation("TrainingCreator", fields: [createdBy], references: [id])
+  exemptions  TrainingExemption[]
+  enrollments TrainingEnrollment[]
+}
+
+model TrainingEnrollment {
+  id         String           @id @default(cuid())
+  trainingId String
+  userId     String
+  status     EnrollmentStatus @default(CONFIRMED)
+  createdAt  DateTime         @default(now())
+
+  training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([trainingId, userId])
+  @@index([trainingId])
+}
+
+model TrainingExemption {
+  id         String @id @default(cuid())
+  trainingId String
+  resourceId String
+
+  training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id])
+
+  @@unique([trainingId, resourceId])
+}
+
+model Maintenance {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  spaceId     String
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  space   Space @relation(fields: [spaceId], references: [id])
+  creator User  @relation("MaintenanceCreator", fields: [createdBy], references: [id])
+
+  @@index([spaceId])
+  @@index([startTime, endTime])
+}
+
+model Comment {
+  id        String     @id @default(cuid())
+  userId    String
+  content   String
+  tag       CommentTag @default(GENERAL)
+  imageUrl  String?
+  spaceId   String
+  createdAt DateTime   @default(now())
+
+  space Space @relation(fields: [spaceId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+}
+
+model Certification {
+  id            String   @id @default(cuid())
+  userId        String
+  categoryId    String
+  certifiedAt   DateTime @default(now())
+  certifiedById String
+  notes         String?
+
+  user      User     @relation("UserCertifications", fields: [userId], references: [id])
+  certifier User     @relation("CertifierCertifications", fields: [certifiedById], references: [id])
+  category  Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([userId, categoryId])
+}
+
+enum AuditAction {
+  USER_CREATED
+  USER_DELETED
+  USER_ROLE_CHANGED
+  USER_VERIFIED
+  BOOKING_APPROVED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  CERT_REQUEST_APPROVED
+  CERT_REQUEST_REJECTED
+  CERTIFICATION_REVOKED
+  SPACE_CREATED
+  SPACE_UPDATED
+  SPACE_DELETED
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String
+  action     AuditAction
+  targetType String
+  targetId   String
+  meta       Json        @default("{}")
+  createdAt  DateTime    @default(now())
+
+  actor User @relation("AuditLogs", fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  TRAINING_NEW
+  USER_PENDING
+  CERT_REQUEST
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  linkTo    String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([expiresAt])
+}
+
+model BusinessHours {
+  id        String   @id @default(cuid())
+  spaceId   String
+  dayOfWeek Int      // 0=Domingo, 1=Lunes, ..., 6=Sábado
+  isOpen    Boolean  @default(true)
+  openTime  String   // "09:00"
+  closeTime String   // "17:00"
+  updatedAt DateTime @updatedAt
+
+  space Space @relation(fields: [spaceId], references: [id])
+
+  @@unique([spaceId, dayOfWeek])
+}

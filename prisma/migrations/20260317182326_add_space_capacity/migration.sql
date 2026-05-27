@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Space" ADD COLUMN     "maxCapacity" INTEGER NOT NULL DEFAULT 12,
+ADD COLUMN     "maxCapacityReunion" INTEGER NOT NULL DEFAULT 12;
