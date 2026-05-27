@@ -18,7 +18,7 @@ export default function MyCertificationsPage() {
   }
   const allCategories = Array.from(categoryMap.values()).sort((a, b) => a.order - b.order);
 
-  // Categorías que requieren certificación
+  // Categorías que requieren permiso de uso
   const certRequiredSet = new Set(
     resources.filter((r) => r.requiresCertification).map((r) => r.categoryId),
   );
@@ -29,7 +29,7 @@ export default function MyCertificationsPage() {
       const certs = await certificationService.getMyCertifications();
       setCertifications(certs);
     } catch {
-      toast.error('Error al cargar certificaciones');
+      toast.error('Error al cargar permisos de uso');
     } finally {
       setIsLoading(false);
     }
@@ -50,9 +50,9 @@ export default function MyCertificationsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Mis Certificaciones</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">Mis Permisos de Uso</h1>
       <p className="text-gray-500 text-sm mb-6">
-        Las certificaciones te permiten reservar máquinas directamente sin esperar aprobación del administrador.
+        Los permisos de uso te permiten reservar máquinas directamente sin esperar aprobación del administrador.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -75,7 +75,7 @@ export default function MyCertificationsPage() {
                 <div>
                   <div className="flex items-center gap-1.5 mb-1">
                     <span className="text-emerald-500 text-base">✓</span>
-                    <span className="text-sm font-medium text-emerald-600">No requiere certificación</span>
+                    <span className="text-sm font-medium text-emerald-600">No requiere permiso de uso</span>
                   </div>
                   <p className="text-xs text-gray-400">
                     Puedes reservar directamente sin pasar por este proceso.
@@ -85,7 +85,7 @@ export default function MyCertificationsPage() {
                 <div>
                   <div className="flex items-center gap-1.5 mb-1">
                     <span className="text-emerald-600 text-lg">✓</span>
-                    <span className="text-sm font-medium text-emerald-700">Certificada</span>
+                    <span className="text-sm font-medium text-emerald-700">Con permiso de uso</span>
                   </div>
                   <p className="text-xs text-gray-400">
                     Desde {formatDateTime(cert.certifiedAt)}
@@ -98,10 +98,10 @@ export default function MyCertificationsPage() {
                 <div>
                   <div className="flex items-center gap-1.5 mb-1">
                     <span className="text-gray-400 text-base">○</span>
-                    <span className="text-sm font-medium text-gray-500">Sin certificación</span>
+                    <span className="text-sm font-medium text-gray-500">Sin permiso de uso</span>
                   </div>
                   <p className="text-xs text-gray-400">
-                    Las reservas quedarán pendientes de aprobación hasta que una administradora te certifique.
+                    Las reservas quedarán pendientes de aprobación hasta que una administradora te otorgue el permiso.
                   </p>
                 </div>
               )}

@@ -130,7 +130,8 @@ export default function BookingsPage() {
     const byStatus = bookings.filter((b) => filter === 'ALL' || b.status === filter);
     const bySearch = q
       ? byStatus.filter((b) =>
-          b.resource.name.toLowerCase().includes(q) ||
+          (b.resource?.name ?? '').toLowerCase().includes(q) ||
+          (b.groupName ?? '').toLowerCase().includes(q) ||
           b.user.name.toLowerCase().includes(q) ||
           b.user.email.toLowerCase().includes(q)
         )
@@ -204,6 +205,7 @@ export default function BookingsPage() {
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <SortableHeader label="Usuario" sortKey="user" sort={sort} onSort={handleSort} className="text-left" />
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Agrupación</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Máquinas</th>
                   <SortableHeader label="Fecha y Hora" sortKey="startTime" sort={sort} onSort={handleSort} className="text-left" />
                   <SortableHeader label="Propósito" sortKey="purpose" sort={sort} onSort={handleSort} className="text-left" />
@@ -222,16 +224,30 @@ export default function BookingsPage() {
                         <p className="text-xs text-gray-400">{g.user.email}</p>
                       </td>
                       <td className="px-4 py-3">
+                        {g.bookings[0].groupName ? (
+                          <p className="text-sm font-medium text-gray-800">{g.bookings[0].groupName}</p>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                        <p className="text-xs text-gray-400">
+                          {g.bookings[0].attendees} persona{g.bookings[0].attendees !== 1 ? 's' : ''}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
                         <div className="space-y-1">
-                          {g.bookings.map((b) => (
-                            <div key={b.id} className="flex items-center gap-2">
-                              <div
-                                className="w-2 h-2 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: b.resource.category?.color ?? '#6b7280' }}
-                              />
-                              <span className="text-gray-700">{b.resource.name}</span>
-                            </div>
-                          ))}
+                          {g.bookings.every(b => !b.resource) ? (
+                            <span className="text-xs text-gray-400 italic">Sin máquina asignada</span>
+                          ) : (
+                            g.bookings.filter(b => b.resource).map((b) => (
+                              <div key={b.id} className="flex items-center gap-2">
+                                <div
+                                  className="w-2 h-2 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: b.resource?.category?.color ?? '#6b7280' }}
+                                />
+                                <span className="text-gray-700">{b.resource?.name}</span>
+                              </div>
+                            ))
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">

@@ -14,7 +14,7 @@ import toast from 'react-hot-toast';
 
 type Purpose = 'LEARN' | 'PRODUCE' | 'DESIGN' | 'REUNION';
 type CompanionRel = 'CUIDADOS' | 'AMISTAD' | 'OTRO';
-type WizardStep = 'WHO' | 'SCHEDULE' | 'MACHINES' | 'DETAILS' | 'SUMMARY';
+type WizardStep = 'WHO' | 'SCHEDULE' | 'GROUP' | 'MACHINES' | 'DETAILS' | 'SUMMARY';
 
 const PURPOSE_LABELS: Record<Purpose, string> = {
   LEARN: 'Aprender',
@@ -36,7 +36,7 @@ interface Props {
 
 // ─── Estado inicial ────────────────────────────────────────────────────────────
 
-const makeInitial = (preselectedDate?: Date) => {
+const makeInitial = (preselectedDate?: Date, userOrg?: string) => {
   const date = preselectedDate ? format(preselectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
   let startTime = '09:00';
   let endTime = '10:00';
@@ -55,23 +55,24 @@ const makeInitial = (preselectedDate?: Date) => {
     startTime,
     endTime,
     purpose: 'LEARN' as Purpose,
+    groupName: userOrg ?? '',
+    groupSize: '1',
     selectedResourceIds: [] as string[],
     resourceQuantities: {} as Record<string, number>,
+    skipMachines: false,
     produceItem: '',
     produceQty: '1',
-    withCompanions: false,
-    companionCount: '1',
-    companionRelation: 'AMISTAD' as CompanionRel,
+    // REUNION-only companions
     attendees: '2',
     isPrivate: false,
+    companionRelation: 'AMISTAD' as CompanionRel,
     notes: '',
   };
 };
 
 const isValidTime = (t: string) => /^\d{2}:\d{2}$/.test(t);
 
-// Pre-rellena el estado del wizard desde reservas existentes (modo edición)
-const makeInitialFromBookings = (editBookings: Booking[]) => {
+const makeInitialFromBookings = (editBookings: Booking[], userOrg?: string) => {
   const first = editBookings[0];
   const start = new Date(first.startTime);
   const end = new Date(first.endTime);
@@ -82,15 +83,18 @@ const makeInitialFromBookings = (editBookings: Booking[]) => {
     startTime: `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`,
     endTime: `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`,
     purpose: first.purpose as Purpose,
-    selectedResourceIds: editBookings.map((b) => b.resourceId),
-    resourceQuantities: Object.fromEntries(editBookings.map((b) => [b.resourceId, b.quantity ?? 1])),
+    groupName: first.groupName ?? userOrg ?? '',
+    groupSize: String(first.attendees ?? 1),
+    selectedResourceIds: editBookings.filter(b => b.resourceId).map((b) => b.resourceId as string),
+    resourceQuantities: Object.fromEntries(
+      editBookings.filter(b => b.resourceId).map((b) => [b.resourceId as string, b.quantity ?? 1])
+    ),
+    skipMachines: editBookings.every(b => !b.resourceId),
     produceItem: first.produceItem ?? '',
     produceQty: String(first.produceQty ?? 1),
-    withCompanions: !!first.companionRelation,
-    companionCount: '1',
-    companionRelation: (first.companionRelation as CompanionRel) ?? 'AMISTAD',
     attendees: String(first.attendees ?? 2),
     isPrivate: first.isPrivate ?? false,
+    companionRelation: (first.companionRelation as CompanionRel) ?? 'AMISTAD',
     notes: first.notes ?? '',
   };
 };
@@ -162,7 +166,7 @@ export default function BookingWizard({
   const isElevated = ['ADMIN', 'SUPER_ADMIN', 'LIDER_COMUNITARIA'].includes(user?.role ?? '');
   const canBookReunion = ['ADMIN', 'SUPER_ADMIN', 'LIDER_COMUNITARIA'].includes(user?.role ?? '');
 
-  const [state, setState] = useState(() => makeInitial(preselectedDate));
+  const [state, setState] = useState(() => makeInitial(preselectedDate, user?.organization ?? undefined));
   const [step, setStep] = useState<WizardStep>(isElevated ? 'WHO' : 'SCHEDULE');
   const [availability, setAvailability] = useState<ResourceAvailability | null>(null);
   const [checkingAv, setCheckingAv] = useState(false);
@@ -179,10 +183,9 @@ export default function BookingWizard({
   useEffect(() => {
     if (isOpen) {
       const initial = isEditMode && editBookings
-        ? makeInitialFromBookings(editBookings)
-        : makeInitial(preselectedDate);
+        ? makeInitialFromBookings(editBookings, user?.organization ?? undefined)
+        : makeInitial(preselectedDate, user?.organization ?? undefined);
       setState(initial);
-      // En edición: ir directo a SCHEDULE (no hay paso WHO)
       setStep(isEditMode ? 'SCHEDULE' : isElevated ? 'WHO' : 'SCHEDULE');
       setAvailability(null);
       setConfirmCancel(false);
@@ -198,7 +201,6 @@ export default function BookingWizard({
     }
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Consultar disponibilidad al avanzar a máquinas
   const fetchAvailability = useCallback(async () => {
     if (!isValidTime(state.startTime) || !isValidTime(state.endTime)) return;
     const startIso = new Date(`${state.date}T${state.startTime}:00`).toISOString();
@@ -227,12 +229,10 @@ export default function BookingWizard({
     ? businessHours.find((h) => h.dayOfWeek === new Date(`${state.date}T12:00:00`).getDay()) ?? null
     : null;
 
-  // Recursos excluiendo Espacio de Reuniones (que es ahora un propósito)
   const bookableResources = resources.filter(
     (r) => r.isActive && r.category?.slug !== 'ESPACIO_REUNION'
   );
 
-  // Recurso sala de reuniones (para propósito REUNION)
   const salaResource = resources.find((r) => r.isActive && r.category?.slug === 'ESPACIO_REUNION');
 
   const isCertifiedFor = (r: Resource) => {
@@ -248,20 +248,37 @@ export default function BookingWizard({
 
   const salaReunionNeedsCert = state.purpose === 'REUNION' && salaResource && !isCertifiedFor(salaResource);
 
-  // Número de pasos visibles (para el indicador)
+  // Pasos totales: WHO(elevado) + SCHEDULE + GROUP + MACHINES(si no REUNION) + DETAILS + SUMMARY
   const totalSteps = isElevated
-    ? state.purpose === 'REUNION' ? 4 : 5
-    : state.purpose === 'REUNION' ? 3 : 4;
+    ? state.purpose === 'REUNION' ? 5 : 6
+    : state.purpose === 'REUNION' ? 4 : 5;
+
+  // Número de paso actual
+  const stepNumber = (): number => {
+    const base = isElevated ? 0 : -1; // WHO = 1 solo para elevados
+    const map: Partial<Record<WizardStep, number>> = {
+      WHO: 1,
+      SCHEDULE: isElevated ? 2 : 1,
+      GROUP: isElevated ? 3 : 2,
+      MACHINES: isElevated ? 4 : 3,
+      DETAILS: state.purpose === 'REUNION'
+        ? (isElevated ? 4 : 3)
+        : (isElevated ? 5 : 4),
+      SUMMARY: totalSteps,
+    };
+    return map[step] ?? 1;
+  };
 
   // ── Navegación ─────────────────────────────────────────────────────────────
 
   const goBack = () => {
     if (step === 'SUMMARY') { setStep('DETAILS'); return; }
     if (step === 'DETAILS') {
-      setStep(state.purpose === 'REUNION' ? 'SCHEDULE' : 'MACHINES');
+      setStep(state.purpose === 'REUNION' ? 'GROUP' : 'MACHINES');
       return;
     }
-    if (step === 'MACHINES') { setStep('SCHEDULE'); return; }
+    if (step === 'MACHINES') { setStep('GROUP'); return; }
+    if (step === 'GROUP') { setStep('SCHEDULE'); return; }
     if (step === 'SCHEDULE') { if (isElevated) setStep('WHO'); return; }
   };
 
@@ -300,6 +317,12 @@ export default function BookingWizard({
   const handleScheduleNext = () => {
     const err = validateSchedule();
     if (err) { toast.error(err); return; }
+    setStep('GROUP');
+  };
+
+  const handleGroupNext = () => {
+    const size = parseInt(state.groupSize, 10);
+    if (!size || size < 1) { toast.error('Indica cuántas personas van (mínimo 1)'); return; }
     if (state.purpose === 'REUNION') {
       if (!salaResource) { toast.error('No hay espacio de reuniones disponible en este espacio'); return; }
       setStep('DETAILS');
@@ -319,9 +342,14 @@ export default function BookingWizard({
 
   const handleMachinesNext = () => {
     if (state.selectedResourceIds.length === 0) {
-      toast.error('Selecciona al menos una máquina');
+      toast.error('Selecciona al menos una máquina o usa "Omitir"');
       return;
     }
+    setStep('DETAILS');
+  };
+
+  const handleSkipMachines = () => {
+    setState((prev) => ({ ...prev, selectedResourceIds: [], skipMachines: true }));
     setStep('DETAILS');
   };
 
@@ -337,7 +365,6 @@ export default function BookingWizard({
 
     setLoading(true);
     try {
-      // En modo edición: cancelar reservas anteriores antes de crear las nuevas
       if (isEditMode && editBookings) {
         for (const b of editBookings) {
           await bookingService.cancel(b.id);
@@ -346,54 +373,73 @@ export default function BookingWizard({
 
       const startIso = new Date(`${state.date}T${state.startTime}:00`).toISOString();
       const endIso = new Date(`${state.date}T${state.endTime}:00`).toISOString();
-      // En edición: preservar el usuario original de la reserva
       const effectiveTargetId = isEditMode && editBookings
         ? editBookings[0].userId
         : isElevated && !state.bookingForSelf && state.targetUserId
           ? state.targetUserId : undefined;
 
-      let resourceIds: string[];
-      if (state.purpose === 'REUNION') {
-        if (!salaResource) { toast.error('Espacio de reuniones no disponible'); return; }
-        resourceIds = [salaResource.id];
-      } else {
-        resourceIds = state.selectedResourceIds;
-      }
-
-      const parsedProduceQty = Math.max(1, parseInt(state.produceQty, 10) || 1);
+      const parsedGroupSize = Math.max(1, parseInt(state.groupSize, 10) || 1);
       const parsedAttendees = Math.max(2, parseInt(state.attendees, 10) || 2);
-      const parsedCompanionCount = Math.max(1, parseInt(state.companionCount, 10) || 1);
+      const parsedProduceQty = Math.max(1, parseInt(state.produceQty, 10) || 1);
 
-      // Crear una reserva por cada recurso seleccionado
-      for (const resourceId of resourceIds) {
-        const resource = resources.find((r) => r.id === resourceId);
-        const isMeson = resource?.category?.slug === 'MESON_CORTE';
+      // Sin máquina: crear una sola reserva sin resourceId
+      if (state.purpose !== 'REUNION' && (state.skipMachines || state.selectedResourceIds.length === 0)) {
         await create({
-          resourceId,
+          resourceId: undefined,
+          groupName: state.groupName || undefined,
           startTime: startIso,
           endTime: endIso,
           purpose: state.purpose,
           produceItem: state.purpose === 'PRODUCE' ? state.produceItem : undefined,
           produceQty: state.purpose === 'PRODUCE' ? parsedProduceQty : undefined,
-          quantity: isMeson ? (state.resourceQuantities[resourceId] ?? 1) : 1,
-          isPrivate: state.purpose === 'REUNION' ? state.isPrivate : undefined,
-          attendees: state.purpose === 'REUNION'
-            ? parsedAttendees
-            : state.withCompanions ? 1 + parsedCompanionCount : 1,
-          companionRelation: state.purpose !== 'REUNION' && state.withCompanions
-            ? state.companionRelation : undefined,
+          quantity: 1,
+          attendees: parsedGroupSize,
           notes: state.notes || undefined,
           targetUserId: effectiveTargetId,
           localDate: state.date,
           localStartTime: state.startTime,
           localEndTime: state.endTime,
         });
+      } else {
+        // Con máquinas (o sala de reuniones)
+        let resourceIds: string[];
+        if (state.purpose === 'REUNION') {
+          if (!salaResource) { toast.error('Espacio de reuniones no disponible'); return; }
+          resourceIds = [salaResource.id];
+        } else {
+          resourceIds = state.selectedResourceIds;
+        }
+
+        for (const resourceId of resourceIds) {
+          const resource = resources.find((r) => r.id === resourceId);
+          const isMeson = resource?.category?.slug === 'MESON_CORTE';
+          await create({
+            resourceId,
+            groupName: state.groupName || undefined,
+            startTime: startIso,
+            endTime: endIso,
+            purpose: state.purpose,
+            produceItem: state.purpose === 'PRODUCE' ? state.produceItem : undefined,
+            produceQty: state.purpose === 'PRODUCE' ? parsedProduceQty : undefined,
+            quantity: isMeson ? (state.resourceQuantities[resourceId] ?? 1) : 1,
+            isPrivate: state.purpose === 'REUNION' ? state.isPrivate : undefined,
+            attendees: state.purpose === 'REUNION' ? parsedAttendees : parsedGroupSize,
+            companionRelation: state.purpose === 'REUNION' ? state.companionRelation : undefined,
+            notes: state.notes || undefined,
+            targetUserId: effectiveTargetId,
+            localDate: state.date,
+            localStartTime: state.startTime,
+            localEndTime: state.endTime,
+          });
+        }
       }
 
-      const count = resourceIds.length;
       if (isEditMode) {
         toast.success('Reserva actualizada');
       } else {
+        const count = state.purpose === 'REUNION' ? 1
+          : (state.skipMachines || state.selectedResourceIds.length === 0) ? 1
+          : state.selectedResourceIds.length;
         const willBePending = !isElevated && (needsCertApproval || (state.purpose === 'REUNION' && state.isPrivate));
         toast.success(
           willBePending
@@ -422,7 +468,7 @@ export default function BookingWizard({
       const ids = prev.selectedResourceIds.includes(id)
         ? prev.selectedResourceIds.filter((x) => x !== id)
         : [...prev.selectedResourceIds, id];
-      return { ...prev, selectedResourceIds: ids };
+      return { ...prev, selectedResourceIds: ids, skipMachines: false };
     });
   };
 
@@ -446,6 +492,7 @@ export default function BookingWizard({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
         {children}
       </div>
+
       {/* Modal: ¿Qué vas a producir? */}
       {showProduceModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4">
@@ -599,10 +646,7 @@ export default function BookingWizard({
                         set('targetUserId', '');
                         setUserDropdownOpen(true);
                       }}
-                      onFocus={() => {
-                        setUserSearch('');
-                        setUserDropdownOpen(true);
-                      }}
+                      onFocus={() => { setUserSearch(''); setUserDropdownOpen(true); }}
                       onBlur={() => setUserDropdownOpen(false)}
                       placeholder="Buscar usuaria..."
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -622,12 +666,17 @@ export default function BookingWizard({
                               className="w-full text-left px-3 py-2 text-sm hover:bg-brand-50 transition-colors"
                               onMouseDown={() => {
                                 set('targetUserId', u.id);
+                                // Pre-rellenar groupName desde la organización de la usuaria seleccionada
+                                if (u.organization) set('groupName', u.organization);
                                 setUserSearch('');
                                 setUserDropdownOpen(false);
                               }}
                             >
                               <span className="font-medium text-gray-800">{u.name}</span>
                               <span className="text-gray-400 ml-1">— {u.email}</span>
+                              {u.organization && (
+                                <span className="text-gray-400 ml-1 text-xs">· {u.organization}</span>
+                              )}
                             </button>
                           ))
                         )}
@@ -688,7 +737,7 @@ export default function BookingWizard({
     return wrapModal(
       <div className="p-6 overflow-y-auto">
         <div className="flex items-start justify-between mb-2">
-          <StepIndicator current={isElevated ? 2 : 1} total={totalSteps} />
+          <StepIndicator current={stepNumber()} total={totalSteps} />
           <CloseButton onClick={requestClose} />
         </div>
 
@@ -696,13 +745,10 @@ export default function BookingWizard({
 
         <h2 className="text-lg font-bold text-gray-900 mb-0.5">Fecha y horario</h2>
         {isElevated && !state.bookingForSelf && state.targetUserId && (
-          <p className="text-xs text-brand-700 font-medium mb-3">
-            Para: {targetUserName}
-          </p>
+          <p className="text-xs text-brand-700 font-medium mb-3">Para: {targetUserName}</p>
         )}
         <p className="text-sm text-gray-500 mb-5">¿Cuándo quieres usar el espacio?</p>
 
-        {/* Fecha */}
         <div className="mb-4">
           <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Fecha</label>
           <input
@@ -714,7 +760,6 @@ export default function BookingWizard({
           />
         </div>
 
-        {/* Hora inicio / fin */}
         <div className="grid grid-cols-2 gap-3 mb-2">
           <div>
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Hora inicio</label>
@@ -740,7 +785,6 @@ export default function BookingWizard({
           </div>
         </div>
 
-        {/* Hints de duración y horario */}
         {durationMinutes > 0 && (
           <p className={`text-xs mb-1 ${overMax ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
             {overMax
@@ -753,11 +797,8 @@ export default function BookingWizard({
             Horario del espacio: {dayHours.openTime} – {dayHours.closeTime}
           </p>
         )}
-        {bhWarn && (
-          <p className="text-xs text-red-600 font-medium mb-1">{bhWarn}</p>
-        )}
+        {bhWarn && <p className="text-xs text-red-600 font-medium mb-1">{bhWarn}</p>}
 
-        {/* Propósito */}
         <div className="mt-5 mb-6">
           <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">¿Para qué usarás el espacio?</label>
           <div className="grid grid-cols-2 gap-2">
@@ -799,11 +840,6 @@ export default function BookingWizard({
               </button>
             )}
           </div>
-          {state.purpose === 'REUNION' && !salaResource && (
-            <p className="text-xs text-amber-600 mt-2">
-              No hay sala de reuniones activa en este espacio
-            </p>
-          )}
         </div>
 
         <button
@@ -811,7 +847,91 @@ export default function BookingWizard({
           onClick={handleScheduleNext}
           className="w-full py-2.5 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 transition-colors"
         >
-          {state.purpose === 'REUNION' ? 'Continuar → Detalles' : state.purpose === 'PRODUCE' ? 'Continuar → ¿Qué producirás?' : 'Continuar → Máquinas'}
+          Continuar → Datos del grupo
+        </button>
+      </div>
+    );
+  }
+
+  // ── GROUP ──────────────────────────────────────────────────────────────────
+  if (step === 'GROUP') {
+    return wrapModal(
+      <div className="p-6 overflow-y-auto">
+        <div className="flex items-start justify-between mb-2">
+          <StepIndicator current={stepNumber()} total={totalSteps} />
+          <CloseButton onClick={requestClose} />
+        </div>
+
+        <BackButton onClick={goBack} />
+
+        <h2 className="text-lg font-bold text-gray-900 mb-0.5">Datos del grupo</h2>
+        <p className="text-sm text-gray-500 mb-5">
+          {state.date} · {state.startTime} – {state.endTime}
+        </p>
+
+        <div className="space-y-4 mb-6">
+          {/* Nombre de agrupación */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+              Agrupación u organización
+            </label>
+            <input
+              type="text"
+              value={state.groupName}
+              onChange={(e) => set('groupName', e.target.value)}
+              placeholder="Nombre de tu agrupación (opcional)"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">Se puede dejar vacío si no perteneces a una agrupación</p>
+          </div>
+
+          {/* Número de personas */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+              ¿Cuántas personas vienen? *
+            </label>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => set('groupSize', String(Math.max(1, (parseInt(state.groupSize, 10) || 1) - 1)))}
+                className="w-10 h-10 rounded-full border-2 border-gray-200 text-gray-600 flex items-center justify-center text-lg hover:bg-gray-100 hover:border-gray-300 transition-colors font-medium"
+              >
+                −
+              </button>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={state.groupSize}
+                onChange={(e) => set('groupSize', e.target.value.replace(/\D/g, ''))}
+                className="w-20 text-center border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <button
+                type="button"
+                onClick={() => set('groupSize', String((parseInt(state.groupSize, 10) || 1) + 1))}
+                className="w-10 h-10 rounded-full border-2 border-gray-200 text-gray-600 flex items-center justify-center text-lg hover:bg-gray-100 hover:border-gray-300 transition-colors font-medium"
+              >
+                +
+              </button>
+              <span className="text-sm text-gray-500">
+                persona{parseInt(state.groupSize, 10) !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Este número se usa para controlar el aforo del espacio
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGroupNext}
+          className="w-full py-2.5 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 transition-colors"
+        >
+          {state.purpose === 'REUNION'
+            ? 'Continuar → Detalles'
+            : state.purpose === 'PRODUCE'
+            ? 'Continuar → ¿Qué producirás?'
+            : 'Continuar → Máquinas'}
         </button>
       </div>
     );
@@ -819,7 +939,6 @@ export default function BookingWizard({
 
   // ── MACHINES ───────────────────────────────────────────────────────────────
   if (step === 'MACHINES') {
-    // Agrupar por categoría
     const categoryMap = new Map<string, { name: string; color: string; resources: Resource[] }>();
     for (const r of bookableResources) {
       if (!r.category) continue;
@@ -843,17 +962,25 @@ export default function BookingWizard({
     return wrapModal(
       <div className="p-6 overflow-y-auto">
         <div className="flex items-start justify-between mb-2">
-          <StepIndicator current={isElevated ? 3 : 2} total={totalSteps} />
+          <StepIndicator current={stepNumber()} total={totalSteps} />
           <CloseButton onClick={requestClose} />
         </div>
 
         <BackButton onClick={goBack} />
 
-        <h2 className="text-lg font-bold text-gray-900 mb-0.5">Selecciona máquinas</h2>
-        <p className="text-sm text-gray-500 mb-1">
+        <div className="flex items-center justify-between mb-0.5">
+          <h2 className="text-lg font-bold text-gray-900">Selecciona máquinas</h2>
+          <button
+            type="button"
+            onClick={handleSkipMachines}
+            className="text-xs bg-red-500 hover:bg-red-600 text-white font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Omitir
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
           {state.date} · {state.startTime} – {state.endTime}
         </p>
-        <p className="text-xs text-gray-400 mb-4">Puedes seleccionar más de una</p>
 
         {checkingAv && (
           <div className="flex items-center gap-2 text-xs text-gray-400 mb-4">
@@ -865,7 +992,7 @@ export default function BookingWizard({
           </div>
         )}
 
-        <div className="space-y-2 mb-6">
+        <div className="space-y-2 mb-4">
           {categories.length === 0 && (
             <p className="text-sm text-gray-400 italic text-center py-6">No hay máquinas disponibles</p>
           )}
@@ -873,107 +1000,106 @@ export default function BookingWizard({
             const isExpanded = expandedCategories.has(catId);
             const selectedInCat = cat.resources.filter(r => state.selectedResourceIds.includes(r.id)).length;
             return (
-            <div key={catId} className="border border-gray-200 rounded-xl overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setExpandedCategories(prev => {
-                  const next = new Set(prev);
-                  if (next.has(catId)) next.delete(catId); else next.add(catId);
-                  return next;
-                })}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
-              >
-                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide flex-1">{cat.name}</span>
-                {selectedInCat > 0 && (
-                  <span className="text-xs font-medium text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-full">
-                    {selectedInCat}
-                  </span>
-                )}
-                <svg
-                  className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              <div key={catId} className="border border-gray-200 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setExpandedCategories(prev => {
+                    const next = new Set(prev);
+                    if (next.has(catId)) next.delete(catId); else next.add(catId);
+                    return next;
+                  })}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {isExpanded && (
-              <div className="p-2 space-y-1.5">
-                {cat.resources.map((r) => {
-                  const av = getAvStatus(r);
-                  const disabled = isDisabled(r);
-                  const selected = state.selectedResourceIds.includes(r.id);
-                  const isMeson = r.category?.slug === 'MESON_CORTE';
-                  const notCert = !isCertifiedFor(r);
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide flex-1">{cat.name}</span>
+                  {selectedInCat > 0 && (
+                    <span className="text-xs font-medium text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-full">
+                      {selectedInCat}
+                    </span>
+                  )}
+                  <svg
+                    className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {isExpanded && (
+                  <div className="p-2 space-y-1.5">
+                    {cat.resources.map((r) => {
+                      const av = getAvStatus(r);
+                      const disabled = isDisabled(r);
+                      const selected = state.selectedResourceIds.includes(r.id);
+                      const isMeson = r.category?.slug === 'MESON_CORTE';
+                      const notCert = !isCertifiedFor(r);
 
-                  return (
-                    <div key={r.id}>
-                      <label className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
-                        disabled
-                          ? 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed'
-                          : selected
-                          ? 'border-brand-500 bg-brand-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}>
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          disabled={disabled}
-                          onChange={() => !disabled && toggleResource(r.id)}
-                          className="accent-brand-600 w-4 h-4 shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-gray-900">{r.name}</span>
-                            {disabled && av && (
-                              <span className="text-xs text-red-500">{av.reason ?? 'No disponible'}</span>
-                            )}
-                            {!disabled && av?.status === 'available' && av.availableCapacity !== undefined && (
-                              <span className="text-xs text-green-600">
-                                {av.availableCapacity} de {r.capacity} disponibles
-                              </span>
-                            )}
-                            {notCert && !disabled && (
-                              <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                                Sin certificación
-                              </span>
-                            )}
-                          </div>
-                          {r.description && (
-                            <p className="text-xs text-gray-400 truncate mt-0.5">{r.description}</p>
+                      return (
+                        <div key={r.id}>
+                          <label className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                            disabled
+                              ? 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed'
+                              : selected
+                              ? 'border-brand-500 bg-brand-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}>
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              disabled={disabled}
+                              onChange={() => !disabled && toggleResource(r.id)}
+                              className="accent-brand-600 w-4 h-4 shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium text-gray-900">{r.name}</span>
+                                {disabled && av && (
+                                  <span className="text-xs text-red-500">{av.reason ?? 'No disponible'}</span>
+                                )}
+                                {!disabled && av?.status === 'available' && av.availableCapacity !== undefined && (
+                                  <span className="text-xs text-green-600">
+                                    {av.availableCapacity} de {r.capacity} disponibles
+                                  </span>
+                                )}
+                                {notCert && !disabled && (
+                                  <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                                    Sin permiso de uso
+                                  </span>
+                                )}
+                              </div>
+                              {r.description && (
+                                <p className="text-xs text-gray-400 truncate mt-0.5">{r.description}</p>
+                              )}
+                            </div>
+                          </label>
+                          {isMeson && selected && r.capacity > 1 && (
+                            <div className="ml-10 mt-1.5 flex items-center gap-2">
+                              <span className="text-xs text-gray-500">Cantidad:</span>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setQuantityFor(r.id, Math.max(1, (state.resourceQuantities[r.id] ?? 1) - 1))}
+                                  className="w-6 h-6 rounded-full border border-gray-300 text-gray-600 flex items-center justify-center text-sm hover:bg-gray-100"
+                                >−</button>
+                                <span className="text-sm font-medium w-5 text-center">
+                                  {state.resourceQuantities[r.id] ?? 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const maxQty = av?.availableCapacity ?? r.capacity;
+                                    setQuantityFor(r.id, Math.min(maxQty, (state.resourceQuantities[r.id] ?? 1) + 1));
+                                  }}
+                                  className="w-6 h-6 rounded-full border border-gray-300 text-gray-600 flex items-center justify-center text-sm hover:bg-gray-100"
+                                >+</button>
+                              </div>
+                            </div>
                           )}
                         </div>
-                      </label>
-                      {/* Selector de cantidad para mesones */}
-                      {isMeson && selected && r.capacity > 1 && (
-                        <div className="ml-10 mt-1.5 flex items-center gap-2">
-                          <span className="text-xs text-gray-500">Cantidad:</span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setQuantityFor(r.id, Math.max(1, (state.resourceQuantities[r.id] ?? 1) - 1))}
-                              className="w-6 h-6 rounded-full border border-gray-300 text-gray-600 flex items-center justify-center text-sm hover:bg-gray-100"
-                            >−</button>
-                            <span className="text-sm font-medium w-5 text-center">
-                              {state.resourceQuantities[r.id] ?? 1}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const maxQty = av?.availableCapacity ?? r.capacity;
-                                setQuantityFor(r.id, Math.min(maxQty, (state.resourceQuantities[r.id] ?? 1) + 1));
-                              }}
-                              className="w-6 h-6 rounded-full border border-gray-300 text-gray-600 flex items-center justify-center text-sm hover:bg-gray-100"
-                            >+</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              )}
-            </div>
             );
           })}
         </div>
@@ -986,33 +1112,31 @@ export default function BookingWizard({
         {needsCertApproval && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3">
             <p className="text-xs text-amber-700">
-              ⚠️ Una o más máquinas requieren certificación. La reserva quedará pendiente de aprobación.
+              ⚠️ Una o más máquinas requieren permiso de uso. La reserva quedará pendiente de aprobación.
             </p>
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={handleMachinesNext}
-          disabled={state.selectedResourceIds.length === 0}
-          className="w-full py-2.5 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 disabled:opacity-50 transition-colors"
-        >
-          Continuar → Detalles
-        </button>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={handleMachinesNext}
+            disabled={state.selectedResourceIds.length === 0}
+            className="w-full py-2.5 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 disabled:opacity-50 transition-colors"
+          >
+            Continuar → Detalles
+          </button>
+        </div>
       </div>
     );
   }
 
   // ── DETAILS ────────────────────────────────────────────────────────────────
   if (step === 'DETAILS') {
-    const stepNum = isElevated
-      ? state.purpose === 'REUNION' ? 3 : 4
-      : state.purpose === 'REUNION' ? 2 : 3;
-
     return wrapModal(
       <div className="p-6 overflow-y-auto">
         <div className="flex items-start justify-between mb-2">
-          <StepIndicator current={stepNum} total={totalSteps} />
+          <StepIndicator current={stepNumber()} total={totalSteps} />
           <CloseButton onClick={requestClose} />
         </div>
 
@@ -1026,10 +1150,13 @@ export default function BookingWizard({
               · {state.selectedResourceIds.map(id => resources.find(r => r.id === id)?.name).filter(Boolean).join(', ')}
             </span>
           )}
+          {state.purpose !== 'REUNION' && (state.skipMachines || state.selectedResourceIds.length === 0) && (
+            <span className="ml-1 text-gray-400">· Sin máquina asignada</span>
+          )}
         </p>
 
         <div className="space-y-5">
-          {/* Producir: resumen de lo ingresado en la modal previa */}
+          {/* Producir: resumen */}
           {state.purpose === 'PRODUCE' && (
             <div className="bg-brand-50 border border-brand-100 rounded-xl px-4 py-3 flex items-start gap-3">
               <span className="text-lg shrink-0">🧵</span>
@@ -1079,66 +1206,6 @@ export default function BookingWizard({
             </div>
           )}
 
-          {/* Acompañantes (no aplica para REUNION) */}
-          {state.purpose !== 'REUNION' && (
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
-                Acompañantes
-              </label>
-              <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 mb-3">
-                <p className="text-xs text-blue-700">
-                  💡 Recomendamos asistir sola al espacio, salvo que sea absolutamente necesario.
-                </p>
-              </div>
-              <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all mb-2 ${
-                state.withCompanions ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300'
-              }`}>
-                <input
-                  type="checkbox"
-                  checked={state.withCompanions}
-                  onChange={(e) => set('withCompanions', e.target.checked)}
-                  className="accent-brand-600"
-                />
-                <span className="text-sm font-medium text-gray-900">Voy con acompañante(s)</span>
-              </label>
-
-              {state.withCompanions && (
-                <div className="ml-2 space-y-3 border-l-2 border-brand-100 pl-4 mt-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">¿Cuántas personas?</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={state.companionCount}
-                      onChange={(e) => set('companionCount', e.target.value.replace(/\D/g, ''))}
-                      placeholder="1"
-                      className="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Relación</label>
-                    <div className="flex gap-2 flex-wrap">
-                      {(['CUIDADOS', 'AMISTAD', 'OTRO'] as CompanionRel[]).map((rel) => (
-                        <button
-                          key={rel}
-                          type="button"
-                          onClick={() => set('companionRelation', rel)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                            state.companionRelation === rel
-                              ? 'border-brand-500 bg-brand-50 text-brand-700'
-                              : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                          }`}
-                        >
-                          {rel === 'CUIDADOS' ? 'Cuidados' : rel === 'AMISTAD' ? 'Amistad' : 'Otro'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Notas */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
@@ -1183,8 +1250,12 @@ export default function BookingWizard({
         })
       : '';
 
+    const noMachine = state.purpose !== 'REUNION' && (state.skipMachines || state.selectedResourceIds.length === 0);
     const hasCertWarning = needsCertApproval || salaReunionNeedsCert;
     const hasPendingWarning = hasCertWarning || (state.purpose === 'REUNION' && state.isPrivate);
+    const displayGroupSize = state.purpose === 'REUNION'
+      ? parseInt(state.attendees, 10) || 2
+      : parseInt(state.groupSize, 10) || 1;
 
     return wrapModal(
       <div className="p-6 overflow-y-auto">
@@ -1211,6 +1282,23 @@ export default function BookingWizard({
             </div>
           )}
 
+          {/* Agrupación */}
+          {(state.groupName || displayGroupSize > 1) && (
+            <div className="flex gap-2">
+              <span className="text-gray-400 w-28 shrink-0">Agrupación</span>
+              <span className="font-medium text-gray-900">
+                {state.groupName || '—'}{' '}
+                <span className="text-gray-500 font-normal">· {displayGroupSize} persona{displayGroupSize !== 1 ? 's' : ''}</span>
+              </span>
+            </div>
+          )}
+          {!state.groupName && displayGroupSize === 1 && (
+            <div className="flex gap-2">
+              <span className="text-gray-400 w-28 shrink-0">Personas</span>
+              <span className="font-medium text-gray-900">1 persona</span>
+            </div>
+          )}
+
           {/* Fecha y hora */}
           <div className="flex gap-2">
             <span className="text-gray-400 w-28 shrink-0">Fecha</span>
@@ -1233,15 +1321,19 @@ export default function BookingWizard({
               {state.purpose === 'REUNION' ? 'Espacio' : selectedResources.length > 1 ? 'Máquinas' : 'Máquina'}
             </span>
             <div>
-              {selectedResources.map((r) => (
-                <div key={r.id} className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.category?.color ?? '#6b7280' }} />
-                  <span className="font-medium text-gray-900">{r.name}</span>
-                  {r.category?.slug === 'MESON_CORTE' && state.resourceQuantities[r.id] > 1 && (
-                    <span className="text-gray-500">× {state.resourceQuantities[r.id]}</span>
-                  )}
-                </div>
-              ))}
+              {noMachine ? (
+                <span className="text-gray-500 italic">Sin máquina asignada</span>
+              ) : (
+                selectedResources.map((r) => (
+                  <div key={r.id} className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.category?.color ?? '#6b7280' }} />
+                    <span className="font-medium text-gray-900">{r.name}</span>
+                    {r.category?.slug === 'MESON_CORTE' && state.resourceQuantities[r.id] > 1 && (
+                      <span className="text-gray-500">× {state.resourceQuantities[r.id]}</span>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -1255,28 +1347,10 @@ export default function BookingWizard({
             </div>
           )}
 
-          {state.purpose === 'REUNION' && (
-            <>
-              <div className="flex gap-2">
-                <span className="text-gray-400 w-28 shrink-0">Asistentes</span>
-                <span className="font-medium text-gray-900">{state.attendees} personas</span>
-              </div>
-              {state.isPrivate && (
-                <div className="flex gap-2">
-                  <span className="text-gray-400 w-28 shrink-0">Tipo</span>
-                  <span className="font-medium text-amber-700">Privada (requiere aprobación)</span>
-                </div>
-              )}
-            </>
-          )}
-
-          {state.purpose !== 'REUNION' && state.withCompanions && (
+          {state.purpose === 'REUNION' && state.isPrivate && (
             <div className="flex gap-2">
-              <span className="text-gray-400 w-28 shrink-0">Acompañantes</span>
-              <span className="font-medium text-gray-900">
-                {state.companionCount} persona{parseInt(state.companionCount) !== 1 ? 's' : ''} ·{' '}
-                {state.companionRelation === 'CUIDADOS' ? 'Cuidados' : state.companionRelation === 'AMISTAD' ? 'Amistad' : 'Otro'}
-              </span>
+              <span className="text-gray-400 w-28 shrink-0">Tipo</span>
+              <span className="font-medium text-amber-700">Privada (requiere aprobación)</span>
             </div>
           )}
 
@@ -1288,18 +1362,16 @@ export default function BookingWizard({
           )}
         </div>
 
-        {/* Advertencia de certificación / pendiente */}
         {hasPendingWarning && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-4">
             <p className="text-xs text-amber-700">
               ⚠️ {state.purpose === 'REUNION' && state.isPrivate
                 ? 'La reunión privada quedará pendiente de aprobación del administrador.'
-                : 'Una o más máquinas requieren certificación. La reserva quedará pendiente de aprobación.'}
+                : 'Una o más máquinas requieren permiso de uso. La reserva quedará pendiente de aprobación.'}
             </p>
           </div>
         )}
 
-        {/* Botones */}
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"

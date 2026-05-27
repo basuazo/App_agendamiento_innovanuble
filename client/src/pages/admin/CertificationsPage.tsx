@@ -88,7 +88,7 @@ export default function CertificationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [certsLoading, setCertsLoading] = useState(false);
 
-  // Certificar: qué fila está en modo "ingresar notas + confirmar"
+  // Otorgar permiso: qué fila está en modo "ingresar notas + confirmar"
   const [certifyingCatId, setCertifyingCatId] = useState<string | null>(null);
   const [certNotes, setCertNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -119,7 +119,7 @@ export default function CertificationsPage() {
       const certs = await certificationService.getAllCertifications(userId);
       setUserCerts(certs);
     } catch {
-      toast.error('Error al cargar certificaciones');
+      toast.error('Error al cargar permisos de uso');
     } finally {
       setCertsLoading(false);
     }
@@ -143,13 +143,13 @@ export default function CertificationsPage() {
     setSaving(true);
     try {
       await certificationService.certifyUser(selectedUserId, catId, certNotes.trim() || undefined);
-      toast.success('Certificación otorgada');
+      toast.success('Permiso de uso otorgado');
       setCertifyingCatId(null);
       setCertNotes('');
       loadUserCerts(selectedUserId);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      toast.error(msg ?? 'Error al certificar');
+      toast.error(msg ?? 'Error al otorgar permiso');
     } finally {
       setSaving(false);
     }
@@ -160,7 +160,7 @@ export default function CertificationsPage() {
     setRevoking(true);
     try {
       await certificationService.revokeCertification(revokeTarget.id);
-      toast.success('Certificación revocada');
+      toast.success('Permiso de uso revocado');
       setRevokeTarget(null);
       loadUserCerts(selectedUserId);
     } catch {
@@ -183,9 +183,9 @@ export default function CertificationsPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Gestión de Certificaciones</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Gestión de Permisos de Uso</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Busca una usuaria para revisar y gestionar sus certificaciones de categoría.
+          Busca una usuaria para revisar y gestionar sus permisos de uso por categoría.
         </p>
       </div>
 
@@ -239,7 +239,7 @@ export default function CertificationsPage() {
                       <th className="px-4 py-3 text-left font-medium text-gray-600">Categoría</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-600">Estado</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-600 hidden md:table-cell">Fecha</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-600 hidden md:table-cell">Certificada por</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-600 hidden md:table-cell">Otorgado por</th>
                       <th className="px-4 py-3 text-right font-medium text-gray-600">Acción</th>
                     </tr>
                   </thead>
@@ -264,10 +264,10 @@ export default function CertificationsPage() {
                               {cert ? (
                                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
                                   <span className="text-emerald-500">✓</span>
-                                  Certificada
+                                  Con permiso
                                 </span>
                               ) : (
-                                <span className="text-xs text-gray-400">Sin certificación</span>
+                                <span className="text-xs text-gray-400">Sin permiso de uso</span>
                               )}
                             </td>
                             <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">
@@ -292,7 +292,7 @@ export default function CertificationsPage() {
                                   }}
                                   className="text-xs text-brand-600 hover:text-brand-800 font-medium transition-colors"
                                 >
-                                  {isCertifying ? 'Cancelar' : 'Certificar'}
+                                  {isCertifying ? 'Cancelar' : 'Otorgar permiso'}
                                 </button>
                               )}
                             </td>
@@ -315,7 +315,7 @@ export default function CertificationsPage() {
                                     disabled={saving}
                                     className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-60 transition-colors whitespace-nowrap"
                                   >
-                                    {saving ? 'Guardando...' : 'Confirmar certificación'}
+                                    {saving ? 'Guardando...' : 'Confirmar permiso de uso'}
                                   </button>
                                 </div>
                               </td>
@@ -335,15 +335,15 @@ export default function CertificationsPage() {
       {/* Estado vacío */}
       {!selectedUser && !isLoading && (
         <div className="text-center py-16 text-gray-400 text-sm">
-          Selecciona una usuaria para ver y gestionar sus certificaciones.
+          Selecciona una usuaria para ver y gestionar sus permisos de uso.
         </div>
       )}
 
       {/* Modal de confirmación de revocación */}
       {revokeTarget && (
         <ConfirmModal
-          title="Revocar certificación"
-          message={`¿Estás segura que deseas revocar la certificación en "${revokeTarget.category?.name}" de ${selectedUser?.name}? La usuaria necesitará ser certificada nuevamente para reservar directamente.`}
+          title="Revocar permiso de uso"
+          message={`¿Estás segura que deseas revocar el permiso de uso en "${revokeTarget.category?.name}" de ${selectedUser?.name}? La usuaria necesitará un nuevo permiso para reservar directamente.`}
           variant="danger"
           confirmLabel={revoking ? 'Revocando...' : 'Revocar'}
           onConfirm={handleRevoke}

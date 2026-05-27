@@ -137,7 +137,8 @@ model Resource {
 model Booking {
   id                    String         @id @default(cuid())
   userId                String
-  resourceId            String
+  resourceId            String?   // nullable — reservas grupales sin máquina
+  groupName             String?   // auto-rellena desde user.organization, editable
   startTime             DateTime
   endTime               DateTime
   notes                 String?
@@ -155,10 +156,10 @@ model Booking {
   updatedAt             DateTime       @updatedAt
 
   user     User     @relation(fields: [userId], references: [id])
-  resource Resource @relation(fields: [resourceId], references: [id])
+  resource Resource? @relation(fields: [resourceId], references: [id])
 
   @@index([userId])
-  @@index([resourceId])
+  @@index([resourceId])  // sin cambio, Prisma maneja nulls en índices
   @@index([status])
   @@index([startTime, endTime])
 }

@@ -114,7 +114,7 @@ export default function ResourceForm({ resource, onClose }: Props) {
                 className="w-4 h-4 text-brand-600 rounded"
               />
               <label htmlFor="requiresCertification" className="text-sm text-gray-700">
-                Requiere certificación para reservar directamente
+                Requiere permiso de uso para reservar directamente
               </label>
             </div>
             <div>

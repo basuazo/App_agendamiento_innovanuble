@@ -116,6 +116,7 @@ export default function CalendarPage() {
   const [enrollLoading, setEnrollLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [enrollTargetId, setEnrollTargetId] = useState('');
+  const [filterGroup, setFilterGroup] = useState('');
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'LIDER_COMUNITARIA';
   const canManageTrainings = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
@@ -333,6 +334,16 @@ export default function CalendarPage() {
 
   const calendarReady = !isLoading && hoursLoaded;
 
+  const filteredBookings = filterGroup.trim()
+    ? bookings.filter((b) => {
+        const q = filterGroup.toLowerCase();
+        return (
+          (b.groupName ?? '').toLowerCase().includes(q) ||
+          b.user.name.toLowerCase().includes(q)
+        );
+      })
+    : bookings;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -419,11 +430,42 @@ export default function CalendarPage() {
         </div>
       )}
 
+      {/* Filtro por agrupación */}
+      <div className="mb-4 flex items-center gap-2">
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <input
+            type="text"
+            value={filterGroup}
+            onChange={(e) => setFilterGroup(e.target.value)}
+            placeholder="Filtrar por agrupación o usuaria..."
+            className="pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-64"
+          />
+          {filterGroup && (
+            <button
+              onClick={() => setFilterGroup('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        {filterGroup && (
+          <span className="text-xs text-brand-600 font-medium">
+            Mostrando reservas de "{filterGroup}"
+          </span>
+        )}
+      </div>
+
       {!calendarReady ? (
         <LoadingSpinner size="lg" />
       ) : (
         <CalendarView
-          bookings={bookings}
+          bookings={filteredBookings}
           trainings={trainings}
           maintenances={maintenances}
           isAdmin={isAdmin}

@@ -332,13 +332,24 @@ function BookingGroupCard({
           {badge.label}
         </span>
       </div>
+      {/* Agrupación y personas */}
+      {(first.groupName || first.attendees > 1) && (
+        <p className="text-xs text-gray-500 mb-2">
+          {first.groupName ? <span className="font-medium text-gray-700">{first.groupName} · </span> : null}
+          {first.attendees} persona{first.attendees !== 1 ? 's' : ''}
+        </p>
+      )}
       <div className="space-y-1.5 mb-2">
-        {bookings.map((b) => (
-          <div key={b.id} className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: b.resource.category?.color ?? '#6b7280' }} />
-            <span className="text-sm font-medium text-gray-900">{b.resource.name}</span>
-          </div>
-        ))}
+        {bookings.every(b => !b.resource) ? (
+          <span className="text-sm text-gray-400 italic">Sin máquina asignada</span>
+        ) : (
+          bookings.filter(b => b.resource).map((b) => (
+            <div key={b.id} className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: b.resource?.category?.color ?? '#6b7280' }} />
+              <span className="text-sm font-medium text-gray-900">{b.resource?.name}</span>
+            </div>
+          ))
+        )}
       </div>
       <div className="flex items-center justify-between gap-2 mt-1">
         <div className="flex flex-wrap gap-2">

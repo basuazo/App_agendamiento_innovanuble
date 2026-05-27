@@ -64,10 +64,10 @@ export default function RegisterPage() {
             }}
           />
           <div style={{ display: 'none' }} className="w-14 h-14 bg-brand-600 rounded-2xl items-center justify-center mx-auto mb-4">
-            <span className="text-white text-lg font-bold">ECT</span>
+            <span className="text-white text-lg font-bold">EC</span>
           </div>
           <h1 className="text-xl font-bold text-gray-900">Crear cuenta</h1>
-          <p className="text-gray-500 text-sm mt-1">Únete al Espacio Colaborativo Textil</p>
+          <p className="text-gray-500 text-sm mt-1">Únete al Espacio Colaborativo</p>
         </div>
 
         {registered ? (

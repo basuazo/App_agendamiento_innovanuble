@@ -201,7 +201,7 @@ export default function CalendarView({
 
     bookingGroups.forEach((group) => {
       const first = group[0];
-      const color = first.resource.category?.color ?? '#6b7280';
+      const color = first.resource?.category?.color ?? '#6b7280';
       const isMulti = group.length > 1;
       const key = `${first.userId}_${first.startTime}_${first.endTime}_${first.purpose}`;
       all.push({
@@ -404,7 +404,7 @@ export default function CalendarView({
               const typeLabels = items.map((it) =>
                 it.kind === 'booking' ? it.bookings[0].user.name
                 : it.kind === 'training' ? it.training.title
-                : 'Certificación'
+                : 'Permiso de Uso'
               );
               return (
                 <div className="p-1 overflow-hidden">
@@ -456,7 +456,7 @@ export default function CalendarView({
                     <div>
                       <p className="font-semibold text-xs truncate text-white">{first.user.name}</p>
                       <p className="text-xs truncate text-white/80">
-                        {bGroup.length} máquinas · {bGroup.map((b) => b.resource.name).join(', ')}
+                        {bGroup.length} máquinas · {bGroup.map((b) => b.resource?.name ?? 'Sin máquina').join(', ')}
                       </p>
                       <p className="text-xs text-white/70">{PURPOSE_LABELS[first.purpose]}</p>
                     </div>
@@ -469,7 +469,9 @@ export default function CalendarView({
                 <div>
                   <p className="font-semibold text-xs truncate">{first.user.name}</p>
                   <p className="text-xs opacity-80 truncate">
-                    {bGroup.map((b) => b.resource.name).join(', ')}
+                    {bGroup.every(b => !b.resource)
+                      ? (first.groupName ?? 'Sin máquina asignada')
+                      : bGroup.filter(b => b.resource).map((b) => b.resource!.name).join(', ')}
                   </p>
                   <p className="text-xs opacity-75">{PURPOSE_LABELS[first.purpose]}</p>
                 </div>
@@ -607,7 +609,7 @@ export default function CalendarView({
                                 style={{ background: 'linear-gradient(135deg, #2563eb, #7c3aed, #dc2626)' }} />
                             ) : (
                               <div className="w-2 h-2 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: first.resource.category?.color ?? '#6b7280' }} />
+                                style={{ backgroundColor: first.resource?.category?.color ?? '#6b7280' }} />
                             )}
                             <span className="font-medium text-gray-900">{first.user.name}</span>
                             <span className="text-xs text-gray-400">
@@ -617,11 +619,13 @@ export default function CalendarView({
                             </span>
                           </div>
                           <div className="mt-1 space-y-0.5">
-                            {item.bookings.map((b) => (
+                            {item.bookings.every(b => !b.resource) ? (
+                              <div className="ml-1 text-xs text-gray-400 italic">Sin máquina asignada</div>
+                            ) : item.bookings.filter(b => b.resource).map((b) => (
                               <div key={b.id} className="flex items-center gap-1.5 ml-1">
                                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: b.resource.category?.color ?? '#6b7280' }} />
-                                <span className="text-xs text-gray-500">{b.resource.name}</span>
+                                  style={{ backgroundColor: b.resource?.category?.color ?? '#6b7280' }} />
+                                <span className="text-xs text-gray-500">{b.resource?.name}</span>
                               </div>
                             ))}
                           </div>
@@ -710,11 +714,13 @@ export default function CalendarView({
                     <div>
                       <p className="font-medium text-gray-700 mb-1">Máquinas:</p>
                       <div className="space-y-1">
-                        {detail.bookings.map((b) => (
+                        {detail.bookings.every(b => !b.resource) ? (
+                          <span className="text-gray-400 italic text-sm">Sin máquina asignada</span>
+                        ) : detail.bookings.filter(b => b.resource).map((b) => (
                           <div key={b.id} className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: b.resource.category?.color ?? '#6b7280' }} />
-                            <span className="text-gray-900">{b.resource.name}</span>
+                              style={{ backgroundColor: b.resource?.category?.color ?? '#6b7280' }} />
+                            <span className="text-gray-900">{b.resource?.name}</span>
                           </div>
                         ))}
                       </div>

@@ -92,7 +92,7 @@ export default function UserDetailPage() {
         toast.success('Reserva rechazada');
       } else if (pendingAction.kind === 'revoke') {
         await certificationService.revokeCertification(pendingAction.certId);
-        toast.success('Certificación revocada');
+        toast.success('Permiso de uso revocado');
       }
       await load();
     } catch (err) {
@@ -176,7 +176,7 @@ export default function UserDetailPage() {
           { label: 'Total reservas', value: bookingStats.total, color: 'text-gray-900' },
           { label: 'Pendientes',     value: bookingStats.pending,   color: 'text-amber-600' },
           { label: 'Confirmadas',    value: bookingStats.confirmed, color: 'text-green-600' },
-          { label: 'Certificaciones', value: certifications.length, color: 'text-brand-600' },
+          { label: 'Permisos de Uso', value: certifications.length, color: 'text-brand-600' },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
             <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
@@ -191,7 +191,7 @@ export default function UserDetailPage() {
           {([
             ['bookings',        `Reservas (${bookings.length})`],
             ['trainings',       `Capacitaciones (${enrollments.length})`],
-            ['certifications',  `Certificaciones (${certifications.length})`],
+            ['certifications',  `Permisos de Uso (${certifications.length})`],
           ] as [ActiveTab, string][]).map(([tab, label]) => (
             <button
               key={tab}
@@ -253,8 +253,8 @@ export default function UserDetailPage() {
                             {formatDateTime(b.startTime)}
                           </td>
                           <td className="px-3 py-2.5">
-                            <p className="font-medium text-gray-900">{b.resource.name}</p>
-                            <p className="text-xs text-gray-400">{b.resource.category?.name}</p>
+                            <p className="font-medium text-gray-900">{b.resource?.name ?? 'Sin máquina asignada'}</p>
+                            <p className="text-xs text-gray-400">{b.resource?.category?.name}</p>
                           </td>
                           <td className="px-3 py-2.5 text-gray-500 hidden sm:table-cell">
                             {PURPOSE_LABELS[b.purpose]}
@@ -350,11 +350,11 @@ export default function UserDetailPage() {
           </div>
         )}
 
-        {/* ── Tab: Certificaciones ─────────────────────── */}
+        {/* ── Tab: Permisos de Uso ─────────────────────── */}
         {activeTab === 'certifications' && (
           <div className="p-4">
             {certifications.length === 0 ? (
-              <p className="text-center text-gray-400 py-10 text-sm">Sin certificaciones</p>
+              <p className="text-center text-gray-400 py-10 text-sm">Sin permisos de uso</p>
             ) : (
               <div className="space-y-2">
                 {certifications.map((c) => (
@@ -367,7 +367,7 @@ export default function UserDetailPage() {
                       <div>
                         <p className="font-medium text-gray-900 text-sm">{c.category?.name}</p>
                         <p className="text-xs text-gray-400">
-                          Certificada el {new Date(c.certifiedAt).toLocaleDateString('es-CL')}
+                          Otorgado el {new Date(c.certifiedAt).toLocaleDateString('es-CL')}
                           {c.certifier && ` · por ${c.certifier.name}`}
                         </p>
                       </div>
@@ -392,7 +392,7 @@ export default function UserDetailPage() {
       {pendingAction?.kind === 'approve' && (
         <ConfirmModal
           title="Aprobar reserva"
-          message={`¿Confirmar la reserva de "${pendingAction.booking.resource.name}" el ${formatDateTime(pendingAction.booking.startTime)}?`}
+          message={`¿Confirmar la reserva${pendingAction.booking.resource ? ` de "${pendingAction.booking.resource.name}"` : ''} el ${formatDateTime(pendingAction.booking.startTime)}?`}
           confirmLabel="Aprobar"
           variant="success"
           onConfirm={handleConfirmAction}
@@ -402,7 +402,7 @@ export default function UserDetailPage() {
       {pendingAction?.kind === 'reject' && (
         <ConfirmModal
           title="Rechazar reserva"
-          message={`¿Rechazar la reserva de "${pendingAction.booking.resource.name}" el ${formatDateTime(pendingAction.booking.startTime)}?`}
+          message={`¿Rechazar la reserva${pendingAction.booking.resource ? ` de "${pendingAction.booking.resource.name}"` : ''} el ${formatDateTime(pendingAction.booking.startTime)}?`}
           confirmLabel="Rechazar"
           variant="danger"
           onConfirm={handleConfirmAction}
@@ -411,8 +411,8 @@ export default function UserDetailPage() {
       )}
       {pendingAction?.kind === 'revoke' && (
         <ConfirmModal
-          title="Revocar certificación"
-          message={`¿Revocar la certificación de "${pendingAction.catName}"? La usuaria quedará como solicitud pendiente.`}
+          title="Revocar permiso de uso"
+          message={`¿Revocar el permiso de uso en "${pendingAction.catName}"? La usuaria necesitará un nuevo permiso para reservar directamente.`}
           confirmLabel="Revocar"
           variant="danger"
           onConfirm={handleConfirmAction}

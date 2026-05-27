@@ -39,9 +39,9 @@ export default function LoginPage() {
             }}
           />
           <div style={{ display: 'none' }} className="w-14 h-14 bg-brand-600 rounded-2xl items-center justify-center mx-auto mb-4">
-            <span className="text-white text-lg font-bold">ECT</span>
+            <span className="text-white text-lg font-bold">EC</span>
           </div>
-          <h1 className="text-xl font-bold text-gray-900">Espacio Colaborativo Textil</h1>
+          <h1 className="text-xl font-bold text-gray-900">Espacio Colaborativo</h1>
           <p className="text-gray-500 text-sm mt-1">Agendamiento de Espacios y Máquinas</p>
         </div>
 

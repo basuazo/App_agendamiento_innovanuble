@@ -11,7 +11,8 @@ export interface UpdateBookingDto {
 }
 
 export interface CreateBookingDto {
-  resourceId: string;
+  resourceId?: string;
+  groupName?: string;
   startTime: string;
   endTime: string;
   purpose: 'LEARN' | 'PRODUCE' | 'DESIGN' | 'REUNION';

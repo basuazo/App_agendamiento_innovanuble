@@ -322,7 +322,7 @@ export default function CategoriesPage() {
       {deleteTarget && (
         <ConfirmModal
           title="Eliminar categoría"
-          message={`¿Estás segura que quieres eliminar la categoría "${deleteTarget.name}"? Se eliminarán también sus recursos (si no tienen reservas activas) y las certificaciones asociadas.`}
+          message={`¿Estás segura que quieres eliminar la categoría "${deleteTarget.name}"? Se eliminarán también sus recursos (si no tienen reservas activas) y los permisos de uso asociados.`}
           variant="danger"
           confirmLabel="Eliminar"
           onConfirm={handleDelete}

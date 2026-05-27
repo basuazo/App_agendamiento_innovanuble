@@ -438,9 +438,9 @@ export default function BookingModal({ isOpen, onClose, preselectedDate, presele
                     </p>
                     <p className="text-xs mt-1.5">
                       {certified ? (
-                        <span className="text-emerald-600 font-medium">✓ Certificada</span>
+                        <span className="text-emerald-600 font-medium">✓ Con permiso</span>
                       ) : (
-                        <span className="text-amber-600 font-medium">Sin certificación</span>
+                        <span className="text-amber-600 font-medium">Sin permiso de uso</span>
                       )}
                     </p>
                   </button>
@@ -450,7 +450,7 @@ export default function BookingModal({ isOpen, onClose, preselectedDate, presele
 
             {!isAdmin && (
               <p className="text-xs text-gray-400 mt-4 text-center">
-                Sin certificación, tu reserva quedará pendiente de aprobación
+                Sin permiso de uso, tu reserva quedará pendiente de aprobación
               </p>
             )}
           </div>
@@ -492,7 +492,7 @@ export default function BookingModal({ isOpen, onClose, preselectedDate, presele
           {notCertifiedWarning && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
               <p className="text-xs text-amber-800 font-medium">
-                ⚠️ No tienes certificación en esta categoría. Tu reserva quedará pendiente de aprobación del administrador.
+                ⚠️ No tienes permiso de uso en esta categoría. Tu reserva quedará pendiente de aprobación del administrador.
               </p>
             </div>
           )}
@@ -672,7 +672,7 @@ export default function BookingModal({ isOpen, onClose, preselectedDate, presele
                 {!isPrivate && selectedCategory && !isCertifiedFor(selectedCategory) && !isAdmin && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-1">
                     <p className="text-xs text-amber-800 font-medium">
-                      ⚠️ Sin certificación en Espacio de Reuniones, tu reserva quedará pendiente de aprobación.
+                      ⚠️ Sin permiso de uso en Espacio de Reuniones, tu reserva quedará pendiente de aprobación.
                     </p>
                   </div>
                 )}

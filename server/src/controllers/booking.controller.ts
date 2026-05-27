@@ -22,11 +22,22 @@ const BOOKING_INCLUDE = {
   resource: { select: { id: true, name: true, category: { select: { id: true, name: true, slug: true, color: true } } } },
 };
 
+// Helper: filtro de espacio que maneja bookings con y sin resource
+function spaceFilter(spaceId: string | null) {
+  if (!spaceId) return {};
+  return {
+    OR: [
+      { resource: { spaceId } },
+      { resourceId: null as null, user: { spaceId } },
+    ],
+  };
+}
+
 export const getAllBookings = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const spaceId = resolveSpaceId(req);
     const bookings = await prisma.booking.findMany({
-      where: { status: 'CONFIRMED', ...(spaceId ? { resource: { spaceId } } : {}) },
+      where: { status: 'CONFIRMED', ...spaceFilter(spaceId) },
       include: BOOKING_INCLUDE,
       orderBy: { startTime: 'asc' },
     });
@@ -40,7 +51,7 @@ export const getAdminBookings = async (req: AuthRequest, res: Response): Promise
   try {
     const spaceId = resolveSpaceId(req);
     const bookings = await prisma.booking.findMany({
-      where: spaceId ? { resource: { spaceId } } : {},
+      where: spaceId ? spaceFilter(spaceId) : {},
       include: BOOKING_INCLUDE,
       orderBy: { startTime: 'desc' },
     });
@@ -99,7 +110,6 @@ export const checkAvailability = async (req: AuthRequest, res: Response): Promis
       where: { ...overlapWhere, ...(spaceId ? { spaceId } : {}) },
     });
 
-    // Identify cross-block: if any MESON_CORTE booking exists, ESPACIO_REUNION is blocked (and vice versa)
     const mesonResource = resources.find((r) => r.category.slug === 'MESON_CORTE');
     const reunionResource = resources.find((r) => r.category.slug === 'ESPACIO_REUNION');
     const hasMesonBooking = mesonResource
@@ -112,13 +122,11 @@ export const checkAvailability = async (req: AuthRequest, res: Response): Promis
     const availability: Record<string, { status: string; reason?: string; availableCapacity?: number }> = {};
 
     for (const resource of resources) {
-      // Maintenance block check — bloquea todo el espacio
       if (maintenances.length > 0) {
         availability[resource.id] = { status: 'blocked', reason: 'Mantención del espacio' };
         continue;
       }
 
-      // Training block check
       const blockingTraining = trainings.find(
         (t) => !t.exemptions.some((e) => e.resourceId === resource.id)
       );
@@ -127,7 +135,6 @@ export const checkAvailability = async (req: AuthRequest, res: Response): Promis
         continue;
       }
 
-      // Cross-block checks
       if (resource.category.slug === 'ESPACIO_REUNION' && hasMesonBooking) {
         availability[resource.id] = { status: 'blocked', reason: 'Mesones en uso' };
         continue;
@@ -137,7 +144,6 @@ export const checkAvailability = async (req: AuthRequest, res: Response): Promis
         continue;
       }
 
-      // Capacity check for shared resources
       if (resource.capacity > 1) {
         const usedQty = confirmedBookings
           .filter((b) => b.resourceId === resource.id)
@@ -153,7 +159,6 @@ export const checkAvailability = async (req: AuthRequest, res: Response): Promis
         continue;
       }
 
-      // Standard single-capacity check
       const isBooked = confirmedBookings.some((b) => b.resourceId === resource.id);
       if (isBooked) {
         availability[resource.id] = { status: 'booked', reason: 'Reservada' };
@@ -170,18 +175,34 @@ export const checkAvailability = async (req: AuthRequest, res: Response): Promis
 
 export const createBooking = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { resourceId, startTime: startRaw, endTime: endRaw, notes, purpose, produceItem, produceQty, quantity: quantityRaw, isPrivate, attendees: attendeesRaw, companionRelation, targetUserId, localDate, localStartTime, localEndTime, isExceptional: isExceptionalRaw } = req.body;
+    const {
+      resourceId,
+      groupName: groupNameRaw,
+      startTime: startRaw,
+      endTime: endRaw,
+      notes,
+      purpose,
+      produceItem,
+      produceQty,
+      quantity: quantityRaw,
+      isPrivate,
+      attendees: attendeesRaw,
+      companionRelation,
+      targetUserId,
+      localDate,
+      localStartTime,
+      localEndTime,
+      isExceptional: isExceptionalRaw,
+    } = req.body;
 
     const ELEVATED = ['ADMIN', 'SUPER_ADMIN', 'LIDER_COMUNITARIA'];
     const isElevatedActor = ELEVATED.includes(req.user!.role);
-    // isExceptional solo permitido para roles elevados
     const isExceptional = !!(isExceptionalRaw && isElevatedActor);
 
-    // Admin / líderes pueden agendar en nombre de otra usuaria
     const bookingUserId = (isElevatedActor && targetUserId) ? targetUserId : req.user!.id;
 
-    if (!resourceId || !startRaw || !endRaw || !purpose) {
-      res.status(400).json({ error: 'resourceId, startTime, endTime y purpose son requeridos' });
+    if (!startRaw || !endRaw || !purpose) {
+      res.status(400).json({ error: 'startTime, endTime y purpose son requeridos' });
       return;
     }
 
@@ -203,6 +224,132 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    // Normalizar attendees — mínimo 1
+    const attendees = Math.max(1, Number(attendeesRaw) || 1);
+
+    // Resolver groupName: del body o del perfil del usuario que agenda
+    let groupName: string | null = groupNameRaw?.trim() || null;
+    if (!groupName) {
+      const bookingUser = await prisma.user.findUnique({
+        where: { id: bookingUserId },
+        select: { organization: true },
+      });
+      groupName = bookingUser?.organization ?? null;
+    }
+
+    // ── RUTA SIN RECURSO ──────────────────────────────────────────────────────
+    if (!resourceId) {
+      // Necesitamos el spaceId del usuario para validaciones y aforo
+      const bookingUser = await prisma.user.findUnique({
+        where: { id: bookingUserId },
+        select: { name: true, spaceId: true },
+      });
+
+      if (!bookingUser?.spaceId) {
+        res.status(400).json({ error: 'No se puede determinar el espacio para la reserva' });
+        return;
+      }
+      const spaceId = bookingUser.spaceId;
+
+      // Validar duración máxima
+      const spaceForLimit = await prisma.space.findUnique({
+        where: { id: spaceId },
+        select: { maxBookingMinutes: true, maxCapacity: true, lunchBreakEnabled: true, lunchBreakStart: true, lunchBreakEnd: true },
+      });
+      const durationMs = endTime.getTime() - startTime.getTime();
+      const maxMs = (spaceForLimit?.maxBookingMinutes ?? 240) * 60 * 1000;
+      if (!isExceptional && durationMs > maxMs) {
+        const m = spaceForLimit?.maxBookingMinutes ?? 240;
+        const h = Math.floor(m / 60); const min = m % 60;
+        const maxLabel = min === 0 ? `${h} hora${h > 1 ? 's' : ''}` : `${h}:${String(min).padStart(2, '0')} horas`;
+        res.status(400).json({ error: `La reserva no puede durar más de ${maxLabel}` });
+        return;
+      }
+
+      // Validar horario de negocio
+      if (!isExceptional && localDate && localStartTime && localEndTime) {
+        const dayOfWeek = new Date(`${localDate}T12:00:00`).getDay();
+        const bh = await prisma.businessHours.findUnique({
+          where: { spaceId_dayOfWeek: { spaceId, dayOfWeek } },
+        });
+        if (bh) {
+          if (!bh.isOpen) { res.status(400).json({ error: 'El espacio no abre ese día' }); return; }
+          if (localStartTime < bh.openTime) { res.status(400).json({ error: `El espacio abre a las ${bh.openTime}` }); return; }
+          if (localEndTime > bh.closeTime) { res.status(400).json({ error: `El espacio cierra a las ${bh.closeTime}` }); return; }
+        }
+      }
+
+      // Validar colación
+      if (!isExceptional && spaceForLimit?.lunchBreakEnabled && spaceForLimit.lunchBreakStart && spaceForLimit.lunchBreakEnd && localStartTime && localEndTime) {
+        const lb = spaceForLimit.lunchBreakStart;
+        const le = spaceForLimit.lunchBreakEnd;
+        if (localStartTime < le && localEndTime > lb) {
+          res.status(400).json({ error: `No se puede agendar en horario de colación. Debes agendar antes de las ${lb} y después de las ${le}` });
+          return;
+        }
+      }
+
+      // Bloqueo por mantención
+      const maintenanceBlock = await prisma.maintenance.findFirst({
+        where: { spaceId, startTime: { lt: endTime }, endTime: { gt: startTime } },
+      });
+      if (maintenanceBlock) {
+        res.status(409).json({ error: `El espacio está en mantención: "${maintenanceBlock.title}". No se pueden crear reservas en ese horario.` });
+        return;
+      }
+
+      // Aforo general: suma de attendees de reservas activas (sin máquina y con máquina no-reunión)
+      if (!['ADMIN', 'SUPER_ADMIN'].includes(req.user!.role)) {
+        const maxGeneral = spaceForLimit?.maxCapacity ?? 12;
+        const occupancy = await prisma.booking.aggregate({
+          _sum: { attendees: true },
+          where: {
+            status: { in: ['CONFIRMED', 'PENDING'] },
+            startTime: { lt: endTime },
+            endTime: { gt: startTime },
+            OR: [
+              { resourceId: null as null, user: { spaceId } },
+              { resource: { spaceId, category: { slug: { not: 'ESPACIO_REUNION' } } } },
+            ],
+          },
+        });
+        const currentTotal = occupancy._sum.attendees ?? 0;
+        if (currentTotal + attendees > maxGeneral) {
+          const available = Math.max(0, maxGeneral - currentTotal);
+          res.status(409).json({
+            error: `El espacio ya tiene ${currentTotal} persona(s) en ese horario. Solo quedan ${available} lugar(es) disponibles (aforo máximo: ${maxGeneral}).`,
+          });
+          return;
+        }
+      }
+
+      const booking = await prisma.booking.create({
+        data: {
+          userId: bookingUserId,
+          resourceId: null,
+          groupName,
+          startTime,
+          endTime,
+          notes: notes ?? null,
+          purpose,
+          produceItem: purpose === 'PRODUCE' ? produceItem : null,
+          produceQty: purpose === 'PRODUCE' ? Number(produceQty) : null,
+          quantity: 1,
+          isPrivate: false,
+          attendees,
+          companionRelation: null,
+          isExceptional,
+          status: 'CONFIRMED',
+        },
+        include: BOOKING_INCLUDE,
+      });
+
+      res.status(201).json(booking);
+      return;
+    }
+
+    // ── RUTA CON RECURSO (lógica original intacta) ────────────────────────────
+
     const resource = await prisma.resource.findUnique({
       where: { id: resourceId },
       include: { category: { select: { id: true, name: true, slug: true, color: true } } },
@@ -216,7 +363,7 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
     const maxLabel = (() => {
       const m = spaceForLimit?.maxBookingMinutes ?? 240;
       const h = Math.floor(m / 60); const min = m % 60;
-      return min === 0 ? `${h} hora${h > 1 ? 's' : ''}` : `${h}:${String(min).padStart(2,'0')} horas`;
+      return min === 0 ? `${h} hora${h > 1 ? 's' : ''}` : `${h}:${String(min).padStart(2, '0')} horas`;
     })();
     if (!isExceptional && durationMs > maxMs) {
       res.status(400).json({ error: `La reserva no puede durar más de ${maxLabel}` });
@@ -231,29 +378,18 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    // Validar horario de negocio (solo para reservas no excepcionales)
     if (!isExceptional && localDate && localStartTime && localEndTime) {
       const dayOfWeek = new Date(`${localDate}T12:00:00`).getDay();
       const bh = await prisma.businessHours.findUnique({
         where: { spaceId_dayOfWeek: { spaceId: resource.spaceId, dayOfWeek } },
       });
       if (bh) {
-        if (!bh.isOpen) {
-          res.status(400).json({ error: 'El espacio no abre ese día' });
-          return;
-        }
-        if (localStartTime < bh.openTime) {
-          res.status(400).json({ error: `El espacio abre a las ${bh.openTime}` });
-          return;
-        }
-        if (localEndTime > bh.closeTime) {
-          res.status(400).json({ error: `El espacio cierra a las ${bh.closeTime}` });
-          return;
-        }
+        if (!bh.isOpen) { res.status(400).json({ error: 'El espacio no abre ese día' }); return; }
+        if (localStartTime < bh.openTime) { res.status(400).json({ error: `El espacio abre a las ${bh.openTime}` }); return; }
+        if (localEndTime > bh.closeTime) { res.status(400).json({ error: `El espacio cierra a las ${bh.closeTime}` }); return; }
       }
     }
 
-    // Validar hora de colación (solo para reservas no excepcionales)
     if (!isExceptional && spaceForLimit?.lunchBreakEnabled && spaceForLimit.lunchBreakStart && spaceForLimit.lunchBreakEnd && localStartTime && localEndTime) {
       const lb = spaceForLimit.lunchBreakStart;
       const le = spaceForLimit.lunchBreakEnd;
@@ -263,7 +399,6 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       }
     }
 
-    // Validate and clamp quantity for shared-capacity resources
     const quantity = Math.max(1, Math.min(Number(quantityRaw) || 1, resource.capacity));
 
     const hasConflict = await checkConflict(resourceId, startTime, endTime, undefined, quantity, resource.capacity);
@@ -275,7 +410,6 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    // Cross-blocking: ESPACIO_REUNION ↔ MESON_CORTE (usa slug para compatibilidad con categorías dinámicas)
     if (resource.category.slug === 'ESPACIO_REUNION') {
       const mesonRes = await prisma.resource.findFirst({
         where: { category: { slug: 'MESON_CORTE' }, isActive: true, spaceId: resource.spaceId },
@@ -311,7 +445,6 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       }
     }
 
-    // Bloqueo por mantención (siempre, incluso para reservas excepcionales)
     const maintenanceBlock = await prisma.maintenance.findFirst({
       where: {
         spaceId: resource.spaceId,
@@ -337,10 +470,7 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    // Validar asistentes
-    const attendees = Math.max(1, Number(attendeesRaw) || 1);
-
-    // Límite de ocupación según aforo del espacio (no aplica a ADMIN/SUPER_ADMIN)
+    // Límite de aforo (no aplica a ADMIN/SUPER_ADMIN)
     if (!['ADMIN', 'SUPER_ADMIN'].includes(req.user!.role)) {
       const space = await prisma.space.findUnique({
         where: { id: resource.spaceId },
@@ -349,7 +479,6 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       const isReunion = resource.category.slug === 'ESPACIO_REUNION';
 
       if (isReunion) {
-        // Aforo de sala de reuniones: la reserva en sí no puede superar el límite
         const maxReunion = space?.maxCapacityReunion ?? 12;
         if (attendees > maxReunion) {
           res.status(409).json({
@@ -358,14 +487,16 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
           return;
         }
       } else {
-        // Aforo general: suma de asistentes en reservas no-reunión confirmadas en el mismo horario
         const occupancy = await prisma.booking.aggregate({
           _sum: { attendees: true },
           where: {
-            status: 'CONFIRMED',
+            status: { in: ['CONFIRMED', 'PENDING'] },
             startTime: { lt: endTime },
             endTime: { gt: startTime },
-            resource: { spaceId: resource.spaceId, category: { slug: { not: 'ESPACIO_REUNION' } } },
+            OR: [
+              { resourceId: null as null, user: { spaceId: resource.spaceId } },
+              { resource: { spaceId: resource.spaceId, category: { slug: { not: 'ESPACIO_REUNION' } } } },
+            ],
           },
         });
         const maxGeneral = space?.maxCapacity ?? 12;
@@ -380,10 +511,8 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       }
     }
 
-    // Verificar certificación y modo privado para determinar status
     let bookingStatus: 'CONFIRMED' | 'PENDING' = 'CONFIRMED';
     if (resource.category.slug === 'ESPACIO_REUNION' && isPrivate) {
-      // Modo privado → siempre requiere aprobación del admin
       bookingStatus = 'PENDING';
     } else if (!['ADMIN', 'SUPER_ADMIN', 'LIDER_COMUNITARIA'].includes(req.user!.role) && resource.requiresCertification) {
       const cert = await prisma.certification.findUnique({
@@ -392,7 +521,7 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       if (!cert) bookingStatus = 'PENDING';
     }
 
-    const user = await prisma.user.findUnique({
+    const bookingUserForCalendar = await prisma.user.findUnique({
       where: { id: bookingUserId },
       select: { name: true },
     });
@@ -401,9 +530,10 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       data: {
         userId: bookingUserId,
         resourceId,
+        groupName,
         startTime,
         endTime,
-        notes,
+        notes: notes ?? null,
         purpose,
         produceItem: purpose === 'PRODUCE' ? produceItem : null,
         produceQty: purpose === 'PRODUCE' ? Number(produceQty) : null,
@@ -417,7 +547,6 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       include: BOOKING_INCLUDE,
     });
 
-    // Solo sincronizar con Google Calendar si está CONFIRMED
     if (bookingStatus === 'CONFIRMED') {
       const purposeLabel: Record<string, string> = { LEARN: 'Aprender', PRODUCE: 'Producir', DESIGN: 'Diseñar', REUNION: 'Reunión' };
       const description = `Propósito: ${purposeLabel[purpose]}${
@@ -425,7 +554,7 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
       }${notes ? ` | Notas: ${notes}` : ''}`;
 
       const googleEventId = await createCalendarEvent({
-        summary: `[${resource.name}] ${user?.name ?? 'Usuario'}`,
+        summary: `[${resource.name}] ${bookingUserForCalendar?.name ?? 'Usuario'}`,
         description,
         startTime,
         endTime,
@@ -485,11 +614,14 @@ export const updateBooking = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    // Obtener resource para validaciones (spaceId, capacity, maxBookingMinutes)
-    const resource = await prisma.resource.findUnique({
-      where: { id: booking.resourceId },
-      select: { spaceId: true, capacity: true },
-    });
+    // Obtener resource solo si la reserva tiene uno
+    const resource = booking.resourceId
+      ? await prisma.resource.findUnique({
+          where: { id: booking.resourceId },
+          select: { spaceId: true, capacity: true },
+        })
+      : null;
+
     const spaceForLimit = resource
       ? await prisma.space.findUnique({ where: { id: resource.spaceId }, select: { maxBookingMinutes: true, lunchBreakEnabled: true, lunchBreakStart: true, lunchBreakEnd: true } })
       : null;
@@ -498,7 +630,7 @@ export const updateBooking = async (req: AuthRequest, res: Response): Promise<vo
     const maxLabel = (() => {
       const m = spaceForLimit?.maxBookingMinutes ?? 240;
       const h = Math.floor(m / 60); const min = m % 60;
-      return min === 0 ? `${h} hora${h > 1 ? 's' : ''}` : `${h}:${String(min).padStart(2,'0')} horas`;
+      return min === 0 ? `${h} hora${h > 1 ? 's' : ''}` : `${h}:${String(min).padStart(2, '0')} horas`;
     })();
     if (!booking.isExceptional && durationMs > maxMs) {
       res.status(400).json({ error: `La reserva no puede durar más de ${maxLabel}` });
@@ -511,22 +643,12 @@ export const updateBooking = async (req: AuthRequest, res: Response): Promise<vo
         where: { spaceId_dayOfWeek: { spaceId: resource.spaceId, dayOfWeek } },
       });
       if (bh) {
-        if (!bh.isOpen) {
-          res.status(400).json({ error: 'El espacio no abre ese día' });
-          return;
-        }
-        if (localStartTime < bh.openTime) {
-          res.status(400).json({ error: `El espacio abre a las ${bh.openTime}` });
-          return;
-        }
-        if (localEndTime > bh.closeTime) {
-          res.status(400).json({ error: `El espacio cierra a las ${bh.closeTime}` });
-          return;
-        }
+        if (!bh.isOpen) { res.status(400).json({ error: 'El espacio no abre ese día' }); return; }
+        if (localStartTime < bh.openTime) { res.status(400).json({ error: `El espacio abre a las ${bh.openTime}` }); return; }
+        if (localEndTime > bh.closeTime) { res.status(400).json({ error: `El espacio cierra a las ${bh.closeTime}` }); return; }
       }
     }
 
-    // Validar hora de colación (solo para reservas no excepcionales)
     if (!booking.isExceptional && spaceForLimit?.lunchBreakEnabled && spaceForLimit.lunchBreakStart && spaceForLimit.lunchBreakEnd && localStartTime && localEndTime) {
       const lb = spaceForLimit.lunchBreakStart;
       const le = spaceForLimit.lunchBreakEnd;
@@ -536,13 +658,16 @@ export const updateBooking = async (req: AuthRequest, res: Response): Promise<vo
       }
     }
 
-    const hasConflict = await checkConflict(
-      booking.resourceId, startTime, endTime, booking.id,
-      booking.quantity, resource?.capacity ?? 1
-    );
-    if (hasConflict) {
-      res.status(409).json({ error: 'El recurso ya está reservado en ese horario. Por favor elige otro horario.' });
-      return;
+    // Solo verificar conflicto de recurso si la reserva tiene uno
+    if (booking.resourceId) {
+      const hasConflict = await checkConflict(
+        booking.resourceId, startTime, endTime, booking.id,
+        booking.quantity, resource?.capacity ?? 1
+      );
+      if (hasConflict) {
+        res.status(409).json({ error: 'El recurso ya está reservado en ese horario. Por favor elige otro horario.' });
+        return;
+      }
     }
 
     const updated = await prisma.booking.update({
@@ -593,7 +718,6 @@ export const cancelBooking = async (req: AuthRequest, res: Response): Promise<vo
       await deleteCalendarEvent(booking.googleCalendarEventId);
     }
 
-    // Log when an admin cancels another user's booking
     if (['ADMIN', 'SUPER_ADMIN'].includes(req.user!.role) && booking.userId !== req.user!.id) {
       await logAudit({
         actorId: req.user!.id,
@@ -602,7 +726,7 @@ export const cancelBooking = async (req: AuthRequest, res: Response): Promise<vo
         targetId: booking.id,
         meta: {
           userId: booking.userId,
-          resourceId: booking.resourceId,
+          resourceId: booking.resourceId ?? null,
           startTime: booking.startTime,
         },
       });
@@ -639,25 +763,27 @@ export const approveBooking = async (req: AuthRequest, res: Response): Promise<v
       include: BOOKING_INCLUDE,
     });
 
-    // Sincronizar con Google Calendar al aprobar
-    const purposeLabel: Record<string, string> = { LEARN: 'Aprender', PRODUCE: 'Producir', DESIGN: 'Diseñar', REUNION: 'Reunión' };
-    const description = `Propósito: ${purposeLabel[booking.purpose]}${
-      booking.purpose === 'PRODUCE' ? ` | ${booking.produceItem} x${booking.produceQty} unidades` : ''
-    }${booking.notes ? ` | Notas: ${booking.notes}` : ''}`;
+    // Sincronizar Google Calendar solo si la reserva tiene recurso
+    if (booking.resource) {
+      const purposeLabel: Record<string, string> = { LEARN: 'Aprender', PRODUCE: 'Producir', DESIGN: 'Diseñar', REUNION: 'Reunión' };
+      const description = `Propósito: ${purposeLabel[booking.purpose]}${
+        booking.purpose === 'PRODUCE' ? ` | ${booking.produceItem} x${booking.produceQty} unidades` : ''
+      }${booking.notes ? ` | Notas: ${booking.notes}` : ''}`;
 
-    const googleEventId = await createCalendarEvent({
-      summary: `[${booking.resource.name}] ${(booking.user as { name: string }).name}`,
-      description,
-      startTime: booking.startTime,
-      endTime: booking.endTime,
-      resourceType: (booking.resource as { category: { slug: string } }).category.slug,
-    });
-
-    if (googleEventId) {
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: { googleCalendarEventId: googleEventId },
+      const googleEventId = await createCalendarEvent({
+        summary: `[${booking.resource.name}] ${(booking.user as { name: string }).name}`,
+        description,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        resourceType: (booking.resource as { category: { slug: string } }).category.slug,
       });
+
+      if (googleEventId) {
+        await prisma.booking.update({
+          where: { id: booking.id },
+          data: { googleCalendarEventId: googleEventId },
+        });
+      }
     }
 
     await logAudit({
@@ -668,7 +794,7 @@ export const approveBooking = async (req: AuthRequest, res: Response): Promise<v
       meta: {
         userId: booking.userId,
         userName: (booking.user as { name: string }).name,
-        resourceName: booking.resource.name,
+        resourceName: booking.resource?.name ?? 'Sin máquina',
         startTime: booking.startTime,
       },
     });
@@ -703,7 +829,7 @@ export const rejectBooking = async (req: AuthRequest, res: Response): Promise<vo
       action: 'BOOKING_REJECTED',
       targetType: 'Booking',
       targetId: booking.id,
-      meta: { userId: booking.userId, resourceId: booking.resourceId, startTime: booking.startTime },
+      meta: { userId: booking.userId, resourceId: booking.resourceId ?? null, startTime: booking.startTime },
     });
 
     res.json(updated);
@@ -733,7 +859,7 @@ export const exportBookings = async (req: AuthRequest, res: Response): Promise<v
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     const bookings = await prisma.booking.findMany({
       where: {
-        ...(spaceId ? { resource: { spaceId } } : {}),
+        ...(spaceId ? spaceFilter(spaceId) : {}),
         startTime: { gte: sixMonthsAgo },
       },
       include: BOOKING_INCLUDE,
@@ -744,15 +870,15 @@ export const exportBookings = async (req: AuthRequest, res: Response): Promise<v
       Fecha: fmtDate(new Date(b.startTime)),
       'Hora Inicio': fmtTime(new Date(b.startTime)),
       'Hora Fin': fmtTime(new Date(b.endTime)),
-      Recurso: (b.resource as { name: string }).name,
-      Categoría: (b.resource as { category: { name: string } }).category.name,
+      Agrupación: b.groupName ?? '',
+      'N° Personas': b.attendees,
+      Recurso: b.resource?.name ?? 'Sin máquina asignada',
+      Categoría: (b.resource as { category?: { name: string } } | null)?.category?.name ?? '',
       Usuario: (b.user as { name: string }).name,
       'Email Usuario': (b.user as { email: string }).email,
       Propósito: PURPOSE_LABELS[b.purpose] ?? b.purpose,
       'Ítem a Producir': b.produceItem ?? '',
       Cantidad: b.produceQty ?? '',
-      'N° Asistentes': b.attendees,
-      'Relación Acompañantes': b.companionRelation ?? '',
       Estado: STATUS_LABELS[b.status] ?? b.status,
       Notas: b.notes ?? '',
       'Fecha de Reserva': fmtDateTime(new Date(b.createdAt)),

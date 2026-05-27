@@ -110,7 +110,7 @@ export default function Navbar() {
               style={{ display: 'none' }}
               className="w-9 h-9 bg-brand-600 rounded-lg items-center justify-center flex-shrink-0"
             >
-              <span className="text-white text-xs font-bold">ECT</span>
+              <span className="text-white text-xs font-bold">EC</span>
             </div>
             <div className="hidden sm:block">
               <span className="font-bold text-gray-900 text-base leading-tight block">
@@ -134,7 +134,7 @@ export default function Navbar() {
               Comunidad
             </Link>
             <Link to="/my-certifications" className={`text-sm transition-colors ${isActive('/my-certifications')}`}>
-              Certificaciones
+              Permisos de Uso
             </Link>
 
             {/* Selector de espacio — solo SUPER_ADMIN */}
@@ -237,7 +237,7 @@ export default function Navbar() {
                         <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                         </svg>
-                        Certificaciones
+                        Permisos de Uso
                       </Link>
                     )}
                     {canManageTrainings && (
@@ -342,7 +342,7 @@ export default function Navbar() {
             <Link to="/my-certifications" className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               location.pathname === '/my-certifications' ? 'bg-brand-50 text-brand-600' : 'text-gray-700 hover:bg-gray-50'
             }`}>
-              Certificaciones
+              Permisos de Uso
             </Link>
             <Link to="/notifications" className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               location.pathname === '/notifications' ? 'bg-brand-50 text-brand-600' : 'text-gray-700 hover:bg-gray-50'
@@ -434,7 +434,7 @@ export default function Navbar() {
                     )}
                     {canManageCerts && (
                       <Link to="/admin/certifications" className="block px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                        Certificaciones
+                        Permisos de Uso
                       </Link>
                     )}
                     {canManageTrainings && (

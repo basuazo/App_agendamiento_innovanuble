@@ -59,7 +59,8 @@ export interface Resource {
 export interface Booking {
   id: string;
   userId: string;
-  resourceId: string;
+  resourceId: string | null;
+  groupName: string | null;
   startTime: string;
   endTime: string;
   notes?: string;
@@ -75,7 +76,7 @@ export interface Booking {
   googleCalendarEventId?: string;
   createdAt: string;
   user: { id: string; name: string; email: string; organization?: string | null };
-  resource: { id: string; name: string; category: Category };
+  resource: { id: string; name: string; category: Category } | null;
 }
 
 export interface Comment {
