@@ -29,7 +29,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # OpenSSL 1.1 requerido por el motor de Prisma en Alpine
-RUN apk add --no-cache openssl1.1-compat
+RUN apk add --no-cache openssl
 
 # Dependencias de producción solamente
 COPY server/package*.json ./
