@@ -6,7 +6,7 @@ Documento de referencia para Claude Code. Describe el estado actual del proyecto
 
 ## Descripcion del proyecto
 
-App full-stack de agendamiento de maquinas textiles para centros productivos de cowork. Las usuarias reservan maquinas de coser, bordadoras, plotters, planchas, etc. El sistema gestiona multiples espacios (centros productivos), categorias de maquinas dinamicas por espacio, certificaciones por categoria, aprobacion de usuarias nuevas, y sincronizacion opcional con Google Calendar.
+App full-stack de agendamiento de maquinas y espacios para centros productivos de cowork. Las agrupaciones reservan maquinas de coser, bordadoras, plotters, planchas, etc. La reserva es por agrupacion (no por persona individual): se registra el nombre de la agrupacion y el numero de personas que asistiran. La asignacion de maquina es opcional. El sistema gestiona multiples espacios (centros productivos), categorias de maquinas dinamicas por espacio, permisos de uso por categoria (internamente `Certification` en el schema), aprobacion de usuarias nuevas, y sincronizacion opcional con Google Calendar.
 
 **Fecha de inicio:** febrero 2026
 **Estado actual:** desplegado en produccion — Render (backend + SPA) + Neon (PostgreSQL)
@@ -794,6 +794,38 @@ GET      /api/health               <- health check con DB
 - Implementacion: el evento FullCalendar tiene `backgroundColor:'transparent'`; en `eventContent`, si `bGroup.length > 1`, se devuelve un `<div>` con `style={{ position:'absolute', inset:0, background:'linear-gradient(135deg,#2563eb 0%,#7c3aed 50%,#dc2626 100%)', borderRadius:'inherit', overflow:'hidden' }}` y dentro el contenido de texto (nombre, "N maquinas · lista", proposito)
 - En el `clusterModal`, los items de reserva multi-maquina muestran un punto con el mismo gradiente (via `background` CSS inline) en vez de un color solido
 
+### Feature: Reservas por agrupacion (group bookings)
+- **Schema:** `Booking.resourceId String?` (nullable), `Booking.groupName String?` (nuevo campo). Migracion: `20260527194753_add_group_booking_fields`
+- **Backend (`booking.controller.ts`):**
+  - `spaceFilter(spaceId)` maneja bookings con y sin resource via OR: `{ resource: { spaceId } }` | `{ resourceId: null, user: { spaceId } }`
+  - `createBooking` bifurcado: si no hay `resourceId`, obtiene `spaceId` del perfil del usuario, omite checks de recurso/cert/conflicto, pero sigue validando mantencion y aforo
+  - Aforo calculado sumando `attendees` via `prisma.booking.aggregate({ _sum: { attendees } })` — no por conteo de reservas
+  - `groupName` se auto-rellena desde `user.organization` si no viene en el body
+  - Google Calendar sync envuelto en `if (booking.resource)` para evitar error con reservas sin maquina
+- **Frontend:**
+  - `Booking.resourceId: string | null`, `Booking.groupName: string | null` en `types/index.ts`
+  - `CreateBookingDto.resourceId?: string` (ahora opcional)
+  - `BookingWizard`: nuevo paso `GROUP` (nombre de agrupacion + stepper de personas). Paso `MACHINES` tiene boton "Omitir" rojo en la cabecera superior derecha. `DETAILS` sin seccion de acompanantes (excepto REUNION). `SUMMARY` muestra groupName + attendees. `handleConfirm` sin maquinas: llama `create({ resourceId: undefined, groupName, attendees, ... })`
+  - `BookingsPage`, `MyBookingsPage`, `CalendarView`, `UserDetailPage`: todos los accesos a `resource` usan optional chaining `?.`; fallback "Sin maquina asignada"
+
+### Feature: Filtro en el calendario por agrupacion
+- Input de busqueda con icono lupa y boton limpiar encima del calendario en `CalendarPage`
+- Estado `filterGroup: string` en `CalendarPage`; `filteredBookings` computado localmente antes de pasar a `CalendarView`
+- Filtra por `groupName` o `user.name` (parcial, case-insensitive)
+- El filtrado ocurre en `CalendarPage` (no dentro de `CalendarView`) para garantizar que FullCalendar reaccione al cambio de prop `bookings`
+- Badge "Mostrando reservas de '...'" visible cuando hay filtro activo
+
+### Feature: Terminologia "Permiso de Uso" (antes "Certificacion")
+- Toda la UI del frontend usa "Permiso de Uso" / "Permisos de Uso" en lugar de "Certificacion/es"
+- El schema, los nombres de endpoints y los campos internos del codigo (`Certification`, `certificationService`, `certifier`, `requiresCertification`) NO cambian — solo el texto visible al usuario
+- Archivos actualizados: `Navbar.tsx`, `MyCertificationsPage.tsx`, `CertificationsPage.tsx`, `UserDetailPage.tsx`, `BookingWizard.tsx`, `BookingModal.tsx`, `CalendarView.tsx`, `ResourceForm.tsx`, `CategoriesPage.tsx`
+- Mapeo de textos clave: "Certificar" → "Otorgar permiso", "Certificada" → "Con permiso", "Sin certificacion" → "Sin permiso de uso", "Certificada por" → "Otorgado por", "Revocar certificacion" → "Revocar permiso de uso"
+
+### Feature: Nombre y sigla del espacio
+- Nombre en UI: "Espacio Colaborativo" (sin "Textil")
+- Sigla en fallback de logo: "EC" (antes "ECT")
+- Archivos: `client/index.html` (title), `LoginPage.tsx` (h1), `RegisterPage.tsx` (subtitulo), `Navbar.tsx` (sigla)
+
 ---
 
 ## Credenciales del seed
@@ -847,3 +879,7 @@ Todos con `isVerified=true`. Ejecutar desde `/server/`: `npm run seed`
 - **Agrupacion de reservas (ClusterItem):** el campo del item de cluster cambio de `booking: Booking` (singular) a `bookings: Booking[]` (array). Todos los lugares donde se accedia a `item.booking` deben usar `item.bookings[0]` para el primer booking o iterar el array. Igualmente `VisibleFCEvent.extendedProps.bookings` es siempre un array.
 - **Gradiente multi-maquina:** FullCalendar no soporta CSS gradients en `backgroundColor` — la solucion es poner `backgroundColor:'transparent'` en el evento y devolver un `<div>` con `position:absolute; inset:0` y el gradiente como `background` en `eventContent`. Necesita `borderRadius:'inherit'` para respetar el radio del evento FullCalendar.
 - **makeInitialFromBookings:** factory en BookingWizard que construye el estado inicial del wizard desde un array de Booking existentes. Extrae fecha y horas del primer booking (convirtiendo ISO a HH:MM local via `new Date(first.startTime).getHours()`), proposito, resourceIds (uno por booking), quantities y campos de detalle del primer booking. El paso inicial en modo edicion es siempre `SCHEDULE` (se salta WHO).
+- **Reservas sin maquina (resourceId null):** el spaceFilter del backend usa OR para incluirlas via `user.spaceId`. Todos los accesos a `booking.resource` en frontend y backend usan optional chaining (`?.`). Google Calendar sync y calculo de color de evento usan fallback `?? '#6b7280'`.
+- **Aforo con group bookings:** en lugar de contar reservas (`_count`), se suman los `attendees` via `prisma.booking.aggregate({ _sum: { attendees: true }, where: { ... } })`. El check de aforo distingue reservas de sala (slug `ESPACIO_REUNION`) del resto.
+- **Filtro del calendario en CalendarPage (no en CalendarView):** el filtrado de bookings por agrupacion se hace en `CalendarPage` computando `filteredBookings` antes de pasarlos como prop `bookings` a `CalendarView`. Intentar filtrarlo dentro de `CalendarView` via `useMemo` no funciona porque FullCalendar no reacciona correctamente a cambios de eventos derivados de props nuevas dentro del mismo componente.
+- **Terminologia interna vs. UI:** el modelo Prisma, los servicios, los endpoints y los nombres de variables siguen usando `Certification`/`certify`/`requiresCertification`. Solo los textos visibles al usuario cambian a "Permiso de Uso". Nunca renombrar los campos del schema por este motivo.

@@ -1,6 +1,6 @@
 # CoWork — App de Agendamiento de Máquinas y Espacios
 
-Aplicación web full-stack para gestionar reservas de máquinas textiles y espacios de coworking. Soporta múltiples centros productivos (espacios), certificaciones por categoría de máquina, aprobación de usuarios nuevos y sincronización opcional con Google Calendar.
+Aplicación web full-stack para gestionar reservas de máquinas y espacios de coworking por agrupaciones. Soporta múltiples centros productivos (espacios), permisos de uso por categoría de máquina, aprobación de usuarios nuevos y sincronización opcional con Google Calendar.
 
 ## Stack
 
@@ -103,9 +103,9 @@ npm run dev
 | Rol | Descripción |
 |-----|-------------|
 | `SUPER_ADMIN` | Gestiona todos los espacios. Selecciona el espacio activo en el Navbar. Sin spaceId propio. |
-| `ADMIN` | Administra su espacio: usuarios, recursos, categorías, reservas, certificaciones, horarios. |
-| `LIDER_COMUNITARIA` | Aprueba reservas, gestiona categorías, recursos y certificaciones, verifica y crea/edita usuarias. |
-| `USER` | Reserva máquinas, accede a la comunidad, consulta sus certificaciones. |
+| `ADMIN` | Administra su espacio: usuarios, recursos, categorías, reservas, permisos de uso, horarios. |
+| `LIDER_COMUNITARIA` | Aprueba reservas, gestiona categorías, recursos y permisos de uso, verifica y crea/edita usuarias. |
+| `USER` | Reserva máquinas para su agrupación, accede a la comunidad, consulta sus permisos de uso. |
 
 **Matriz de permisos resumida:**
 
@@ -113,7 +113,7 @@ npm run dev
 |--------|:-----:|:-----------------:|
 | Gestionar recursos | ✓ | ✓ |
 | Gestionar categorías | ✓ | ✓ |
-| Certificar / revocar usuarias | ✓ | ✓ |
+| Otorgar / revocar permisos de uso | ✓ | ✓ |
 | Capacitaciones (crear/eliminar/exportar) | ✓ | — |
 | Inscribir/desinscribir otras usuarias | ✓ | ✓ |
 | Aprobar/rechazar reservas | ✓ | ✓ |
@@ -148,33 +148,34 @@ El header `X-Space-Id` se envía automáticamente en cada request del frontend. 
 
 ## Features principales
 
-- **Calendario interactivo**: vista semanal con FullCalendar. Las actividades que se solapan en el tiempo se agrupan automáticamente en un evento único "N actividades" (cluster). Hacer click en cualquier evento — sea uno solo o un cluster — siempre abre el modal de actividades del horario, mostrando la lista de actividades y el botón "Nueva actividad en este horario". Las reservas multi-máquina se muestran como un único evento con gradiente azul→violeta→rojo.
-- **Reservas centradas en persona (wizard multi-paso)**: el flujo de reserva es por persona, no por máquina. Un wizard guía en 4–5 pasos: 1) ¿para quién? (roles elevados), 2) fecha/hora/propósito, 3) selección de máquinas (multi-select con categorías en acordeón), 4) detalles, 5) resumen. Se pueden reservar varias máquinas a la vez en el mismo horario. Si se cancela el proceso, aparece un diálogo de confirmación antes de perder los datos. La edición de una reserva abre el wizard completo pre-relleno con todos los datos, cancela las reservas originales y crea las nuevas al confirmar.
-- **Validación de horario de negocio**: el wizard muestra el horario del espacio en tiempo real y bloquea horas fuera del rango configurado, tanto en frontend (feedback inmediato) como en backend (validación de seguridad).
-- **Sistema de certificaciones**: ADMIN y LIDER_COMUNITARIA certifican y revocan directamente desde `/admin/certifications`. La página tiene un combobox de búsqueda de usuarias y muestra una tabla con el estado de certificación por categoría. Certificar abre una fila expandible para ingresar notas opcionales. No hay flujo de solicitudes ni sesiones programadas — la certificación es un acto directo del rol elevado.
-- **Capacitaciones**: solo ADMIN puede crear y editar sesiones de capacitación con cupos y horarios configurables (HH:MM). Las usuarias se inscriben desde la pestaña "Capacitaciones" en `/my-bookings` o desde el popup de la capacitación en el calendario. Cupos llenos → lista de espera con promoción automática. Desde el popup del calendario el admin puede editar, eliminar o agendar en el mismo horario (si hay recursos libres por exenciones). La página `/admin/trainings` muestra el listado completo con las inscritas.
-- **Inscripción por otras usuarias**: los roles elevados pueden inscribir y desinscribir a otras usuarias en capacitaciones desde `/admin/trainings` y también desde el popup de capacitación en el calendario, usando un combobox de búsqueda por nombre o email. La lista de inscritas es visible para todas las usuarias (solo lectura para USER).
-- **Exportación de capacitaciones a Excel**: desde `/admin/trainings`, solo ADMIN puede descargar un `.xlsx` con el listado de todas las capacitaciones y sus inscripciones.
-- **Sala de reuniones como propósito**: la opción "Espacio de Reuniones" ya no aparece como una categoría de máquina, sino como un **propósito** en el wizard de reservas, visible solo para LIDER_COMUNITARIA, ADMIN y SUPER_ADMIN. Al seleccionarla se salta la selección de máquinas (se auto-asigna la sala), y se muestran campos de N° de asistentes, privacidad y notas contextuales.
-- **Comunidad**: foro interno con posts etiquetados (GENERAL, MACHINE_ISSUE, ORDER, CLEANING) e imágenes.
+- **Reservas por agrupación (wizard multi-paso)**: las reservas se realizan en nombre de una agrupación, no de una persona individual. El wizard registra el nombre de la agrupación y el número de personas que asistirán (para control de aforo). La selección de máquinas es **opcional** — se puede reservar el espacio sin asignar una máquina específica. El botón "Omitir" en el paso de máquinas permite avanzar sin seleccionar ninguna. El wizard guía en pasos: 1) ¿para quién? (roles elevados), 2) fecha/hora/propósito, 3) agrupación y número de personas, 4) selección de máquinas (opcional), 5) detalles, 6) resumen.
+
+- **Calendario interactivo con filtro**: vista semanal con FullCalendar. Un input de búsqueda encima del calendario filtra los eventos en tiempo real por nombre de agrupación o nombre de usuaria. Las actividades que se solapan en el tiempo se agrupan automáticamente ("N actividades"). Las reservas multi-máquina se muestran con un gradiente azul→violeta→rojo.
+
+- **Validación de horario de negocio**: el wizard muestra el horario del espacio en tiempo real y bloquea horas fuera del rango configurado, tanto en frontend como en backend.
+
+- **Permisos de uso**: ADMIN y LIDER_COMUNITARIA otorgan y revocan permisos de uso directamente desde `/admin/certifications`. La página tiene un combobox de búsqueda de usuarias y muestra el estado de permiso por categoría. Sin permiso → reserva PENDING. Con permiso o categoría sin restricción → reserva CONFIRMED directa.
+
+- **Capacitaciones**: solo ADMIN puede crear y editar sesiones de capacitación con cupos configurables. Las usuarias se inscriben desde `/my-bookings` o desde el popup del calendario. Cupos llenos → lista de espera con promoción automática.
+
+- **Sala de reuniones como propósito**: la opción "Reunión" aparece como propósito en el wizard (solo roles elevados). Se auto-asigna la sala, se salta la selección de máquinas y se muestran campos de N° de asistentes y privacidad.
+
 - **Tablas admin ordenables y responsivas**: todas las tablas admin permiten ordenar A→Z / Z→A y filtrar con búsqueda en tiempo real. En móvil hacen scroll horizontal.
-- **Roles jerárquicos**: cuatro roles con permisos granulares (SUPER_ADMIN, ADMIN, LIDER_COMUNITARIA, USER).
-- **Registro de qué se va a producir**: al seleccionar el propósito "Producir" en el wizard, se abre una modal intermedia que solicita el artículo a producir y la cantidad antes de pasar a la selección de máquinas.
-- **Agendar por otra usuaria**: todos los roles elevados pueden crear reservas a nombre de cualquier usuaria del espacio. El paso "¿Para quién?" es el primero del wizard y aparece solo para estos roles.
-- **Exportación de reservas a Excel**: desde la página Todas las Reservas, ADMIN y LIDER_COMUNITARIA pueden descargar un `.xlsx` con el detalle completo.
-- **Aforo configurable**: cada espacio tiene dos límites editables desde Configuración — uno para máquinas y otro para la sala de reuniones.
-- **Duración máxima de agendamiento configurable**: desde Configuración, el admin puede establecer el tiempo máximo por reserva en intervalos de 30 min (desde 30 min hasta 4 horas). Se aplica tanto en frontend (feedback en tiempo real) como en backend.
-- **Eliminación de recursos**: los roles elevados pueden eliminar recursos desde la página de Recursos. Si el recurso tiene reservas históricas, el sistema bloquea la eliminación e indica que debe desactivarse en su lugar.
-- **Soft delete de usuarios**: al eliminar un usuario sus datos históricos (reservas, certificaciones, inscripciones) se conservan. Si se crea un nuevo usuario con el mismo email, el sistema reactiva la cuenta con los nuevos datos en vez de generar un error.
-- **Personalización por espacio**: desde `/admin/customization`, ADMIN y SUPER_ADMIN pueden configurar el color principal de la interfaz (botones, enlaces, indicadores). El logo se carga automáticamente desde un archivo estático en `client/public/` con el nombre normalizado del espacio (ej. `logo-puentealto.png`).
-- **Hora Excepcional**: ADMIN y SUPER_ADMIN pueden agendar fuera del horario de negocio configurado y sin límite de duración. La reserva se marca como `isExceptional` y el backend omite las validaciones de horario y duración máxima. Las mantenciones sí bloquean incluso las horas excepcionales.
-- **Mantenciones / Cierre de espacio**: ADMIN y SUPER_ADMIN pueden bloquear el espacio completo por un período determinado (sin límite de duración). Durante una mantención no se pueden crear reservas de ningún tipo. Las mantenciones aparecen en el calendario con fondo rojo y son editables y eliminables desde el popup de detalle.
-- **Ficha de usuaria**: desde la lista de usuarios, todos los roles elevados pueden acceder a una página de detalle (`/admin/users/:id`) con estadísticas de reservas, historial de reservas (filtrable por estado), inscripciones a capacitaciones y certificaciones vigentes. ADMIN puede aprobar/rechazar reservas pendientes y revocar certificaciones directamente desde la ficha.
-- **Exportación de usuarios a Excel**: ADMIN y SUPER_ADMIN pueden descargar un `.xlsx` con el listado completo de usuarias del espacio (nombre, email, teléfono, agrupación, rol, estado).
-- **Teléfono de usuaria**: campo opcional de teléfono en el perfil. Editable desde Perfil y desde el panel de edición de usuarios en admin.
-- **Agrupación en calendario con organización**: los eventos de reserva muestran el nombre de la agrupación (`organization`) de la usuaria como subtítulo, facilitando la identificación en el calendario.
-- **Color naranja reservado para Capacitaciones**: el rango de tonos naranja/ámbar (matiz HSL 20–55°) está bloqueado en el selector de colores de categorías. Los presets excluyen esos tonos y el formulario valida en tiempo real, mostrando una advertencia si el color custom elegido cae en ese rango.
-- **Agrupación de reservas por sesión (usuario → máquinas)**: en el calendario y en las tablas admin/usuario, las reservas del mismo usuario en el mismo horario y propósito se agrupan como una única sesión. Una sesión con varias máquinas se muestra con un evento con gradiente azul→violeta→rojo y lista de máquinas como subtítulo.
+
+- **Hora Excepcional**: ADMIN y SUPER_ADMIN pueden agendar fuera del horario de negocio sin límite de duración. Las mantenciones sí bloquean incluso las horas excepcionales.
+
+- **Mantenciones / Cierre de espacio**: ADMIN y SUPER_ADMIN pueden bloquear el espacio completo por un período determinado. Durante una mantención no se pueden crear reservas de ningún tipo.
+
+- **Aforo configurable**: el aforo se controla sumando los asistentes de todas las reservas activas en el mismo horario (no el número de reservas). Cada espacio tiene dos límites editables desde Configuración — uno para máquinas y otro para la sala de reuniones.
+
+- **Exportaciones a Excel**: reservas, usuarios y capacitaciones exportables en `.xlsx` desde las páginas admin correspondientes.
+
+- **Ficha de usuaria**: estadísticas, historial de reservas, inscripciones y permisos de uso desde `/admin/users/:id`.
+
+- **Personalización por espacio**: color principal de la UI (CSS variables) y logo estático por espacio.
+
+- **Comunidad**: foro interno con posts etiquetados e imágenes.
+
 - **Google Calendar**: sincronización automática de reservas CONFIRMED (opcional).
 
 ---
@@ -186,11 +187,10 @@ El header `X-Space-Id` se envía automáticamente en cada request del frontend. 
 - **Rate limiting** — 50 intentos / 15 min en login y registro (por IP real via `trust proxy`)
 - **CORS** restringido a `CLIENT_URL`; body limit 1 MB
 - **JWT** con validación de secret ≥ 32 chars en startup; bcrypt salt 10
-- **Logs estructurados** — pino JSON en producción, pretty en desarrollo; todos los errores de controllers usan `logger.error`
+- **Logs estructurados** — pino JSON en producción, pretty en desarrollo
 - **Graceful shutdown** — SIGTERM/SIGINT cierran el servidor y desconectan la BD
 - **Health check** — `GET /api/health` verifica conexión a BD (usado por Render)
 - **SPA fallback** — Express sirve `index.html` para todas las rutas no-API en producción
-- **Favicon** real en `/favicon.svg`; `noindex/nofollow` en `index.html` (app privada)
 - **Seed protegido** — aborta con error si `NODE_ENV === 'production'`
 
 ---
@@ -230,13 +230,13 @@ Si no se configura, la app funciona igualmente. Las reservas solo se guardan en 
 ├── client/          # React + Vite frontend
 │   └── src/
 │       ├── pages/
-│       │   ├── admin/       # UsersPage, BookingsPage, ResourcesPage, TrainingsPage, etc.
+│       │   ├── admin/       # UsersPage, BookingsPage, ResourcesPage, TrainingsPage, CertificationsPage, etc.
 │       │   ├── superadmin/  # SpacesPage
 │       │   ├── MyBookingsPage.tsx   # reservas de máquina + inscripciones a capacitaciones (tabs)
-│       │   └── MyCertificationsPage.tsx
+│       │   └── MyCertificationsPage.tsx  # "Mis Permisos de Uso"
 │       ├── components/shared/  # Navbar, ConfirmModal, SortableHeader, etc.
 │       ├── store/           # Zustand: authStore, bookingStore, resourceStore, brandingStore
-│       └── utils/           # dateHelpers, apiError, colorHelpers (generación de paleta de colores)
+│       └── utils/           # dateHelpers, apiError, colorHelpers
 ├── server/          # Express API
 │   └── src/
 │       ├── controllers/
@@ -251,23 +251,18 @@ Si no se configura, la app funciona igualmente. Las reservas solo se guardan en 
 
 ## Reglas de negocio
 
-- **Agendamiento multi-máquina**: una persona puede seleccionar varias máquinas en el mismo horario. El wizard crea una reserva (`Booking`) por cada máquina seleccionada, con los mismos datos de fecha/hora/propósito/detalles. Si una creación falla (ej. conflicto), las anteriores ya creadas se mantienen y el error se muestra en pantalla.
-- Duración máxima de reserva **configurable por espacio** desde la página de Configuración (30 min a 4 h en intervalos de 30 min; default 4 h). Horario configurable por espacio (default lun–sáb 09:00–17:00)
-- **Horario de negocio**: las reservas no pueden crearse fuera del horario configurado del espacio. El formulario muestra el horario en tiempo real y el backend lo valida independientemente.
-- **Certificación por categoría**, no por máquina individual. Sin cert → reserva PENDING. Roles elevados o recursos con `requiresCertification=false` → reserva CONFIRMED directa
-- **Conflicto**: `startA < endB AND endA > startB` → error 409
-- Google Calendar sincroniza solo reservas CONFIRMED
-- Registro auto-servicio → `isVerified=false`; admin debe verificar antes de que pueda ingresar
-- **Soft delete de usuarios**: `deletedAt` marca la eliminación sin borrar el historial. Un usuario eliminado no aparece en listas ni puede iniciar sesión. Si se crea un usuario con el mismo email, la cuenta se reactiva con los nuevos datos
-- **Eliminación de recursos**: solo bloqueada si hay reservas activas (PENDING o CONFIRMED) con fecha futura. Reservas pasadas o canceladas no impiden la eliminación
-- **Inscripción a capacitaciones**: cupos configurables por sesión. Al llenarse, las siguientes inscripciones van a lista de espera. Al cancelar una inscripción CONFIRMED, la primera en espera se promueve automáticamente a CONFIRMED
-- **Inscripción por roles elevados**: ADMIN, SUPER_ADMIN y LIDER_COMUNITARIA pueden inscribir y desinscribir a otras usuarias en capacitaciones
-- **Hora excepcional**: las reservas marcadas como `isExceptional` (solo roles ADMIN/SUPER_ADMIN) omiten la validación de horario de negocio y de duración máxima. Las mantenciones sí las bloquean igualmente
-- **Mantenciones**: un período de mantenimiento bloquea la creación de **cualquier** reserva (normal o excepcional) que se solape con él. El backend devuelve 409 con mensaje descriptivo
-- **Edición de reservas**: el propietario de una reserva (o un rol elevado) puede editarla desde el detalle en el calendario. Al hacer click en "Editar" se abre el wizard completo pre-relleno con todos los pasos (fecha, hora, máquinas, detalles). Al confirmar, las reservas originales se cancelan y se crean las nuevas con los datos actualizados. No se puede editar si la reserva está CANCELADA o RECHAZADA
-- **Revocación de certificación**: elimina la `Certification`. La usuaria vuelve a estado sin certificación y sus futuras reservas en esa categoría serán PENDING hasta que la certifiquen nuevamente
-- **Agrupación de actividades en el calendario**: cuando dos o más actividades se solapan en el tiempo, se reemplazan por un único evento "N actividades" (algoritmo union-find). Al hacer click se abre un modal que lista todas las actividades con opción de acceder a cada una individualmente
-- **Personalización de marca**: el color principal de la UI se almacena en BD por espacio y se aplica como CSS variables al cargar; el logo se resuelve desde `client/public/logo-{slug}.png` donde `slug` es el nombre del espacio normalizado (minúsculas, sin tildes ni espacios)
+- **Agendamiento por agrupación**: una reserva representa a una agrupación (no una persona individual). Se registra `groupName` (nombre de la agrupación) y `attendees` (número de personas). La asignación de máquina es opcional — una reserva puede existir sin `resourceId`.
+- **Aforo**: se controla sumando `attendees` de todas las reservas activas (CONFIRMED + PENDING) en el mismo horario. `maxCapacity` para máquinas, `maxCapacityReunion` para sala. No aplica a ADMIN/SUPER_ADMIN.
+- **Filtro por espacio con resourceId null**: las reservas sin máquina asignada se filtran por `user.spaceId` en lugar de `resource.spaceId`.
+- Duración máxima de reserva **configurable por espacio** (30 min a 4 h; default 4 h). Horario configurable por espacio (default lun–sáb 09:00–17:00).
+- **Permiso de uso por categoría** (internamente `Certification`). Sin permiso → PENDING. Con permiso o categoría sin restricción → CONFIRMED.
+- **Conflicto**: `startA < endB AND endA > startB` → error 409.
+- Google Calendar sincroniza solo reservas CONFIRMED (solo si tiene `resource`).
+- Registro auto-servicio → `isVerified=false`; admin debe verificar antes de que pueda ingresar.
+- **Soft delete de usuarios**: `deletedAt` marca la eliminación sin borrar el historial.
+- **Edición de reservas**: el wizard cancela las reservas originales y crea las nuevas al confirmar.
+- **Hora excepcional**: omite validación de horario y duración máxima. Las mantenciones sí bloquean.
+- **Mantenciones**: bloquean cualquier reserva (normal o excepcional) que se solape.
 
 ---
 
@@ -299,3 +294,4 @@ npm run start
 - `client/.npmrc` y `server/.npmrc` incluyen `production=false` para que `npm install` instale devDependencies durante el build.
 - Las migraciones se aplican automáticamente en cada deploy.
 - El plan gratuito de Render hiberna el servicio tras 15 min de inactividad — el primer request puede tardar ~30 seg.
+- El seed **no corre automáticamente** en producción. Ejecutar `cd server && npm run seed` localmente con `server/.env` apuntando a Neon.

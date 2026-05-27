@@ -255,7 +255,6 @@ export default function BookingWizard({
 
   // Número de paso actual
   const stepNumber = (): number => {
-    const base = isElevated ? 0 : -1; // WHO = 1 solo para elevados
     const map: Partial<Record<WizardStep, number>> = {
       WHO: 1,
       SCHEDULE: isElevated ? 2 : 1,
