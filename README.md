@@ -293,5 +293,7 @@ npm run start
 ### Notas
 - `client/.npmrc` y `server/.npmrc` incluyen `production=false` para que `npm install` instale devDependencies durante el build.
 - Las migraciones se aplican automáticamente en cada deploy.
-- El plan gratuito de Render hiberna el servicio tras 15 min de inactividad — el primer request puede tardar ~30 seg.
+- El plan gratuito de Render hiberna el servicio tras 15 min de inactividad. Este repo incluye el workflow programado `.github/workflows/keep-alive.yml`, que usa GitHub Actions como pinger externo y llama cada 10 minutos a `GET /api/ping` sin tocar la BD. Para activarlo, crear el secret `APP_URL` en GitHub: **Settings -> Secrets and variables -> Actions**, con la URL pública de Render (`https://<app>.onrender.com`).
+- Mantener el servicio despierto 24/7 consume casi toda la cuota free de Render (~750 h/mes por workspace). Para reducir consumo, se puede acotar el cron a horario hábil, por ejemplo: `"*/10 8-20 * * 1-6"`.
+- UptimeRobot o cron-job.org sirven como respaldo externo si GitHub Actions no ejecuta algún ping.
 - El seed **no corre automáticamente** en producción. Ejecutar `cd server && npm run seed` localmente con `server/.env` apuntando a Neon.

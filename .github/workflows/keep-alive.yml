@@ -1,0 +1,17 @@
+name: Keep Alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping Render service
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping lightweight endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: curl -sSf "$APP_URL/api/ping" || exit 1

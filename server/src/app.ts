@@ -66,6 +66,11 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // Archivos estáticos (en producción sirve el build del cliente)
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Ping liviano para keep-alive externo (no toca la BD)
+app.get('/api/ping', (_req: Request, res: Response) => {
+  res.json({ status: 'ok' });
+});
+
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
