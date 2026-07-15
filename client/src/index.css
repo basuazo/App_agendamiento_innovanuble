@@ -53,3 +53,22 @@
   background: rgba(239, 68, 68, 0.08) !important;
   cursor: pointer;
 }
+
+.fc .fc-list-event-title {
+  padding: 0.65rem 0.75rem !important;
+}
+
+.fc .fc-list-event-time {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+@media (max-width: 767px) {
+  .fc .fc-toolbar {
+    gap: 0.5rem;
+  }
+
+  .fc .fc-list-day-cushion {
+    padding: 0.5rem 0.75rem !important;
+  }
+}

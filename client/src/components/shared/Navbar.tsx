@@ -321,26 +321,6 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white shadow-lg max-h-[calc(100dvh-4rem)] overflow-y-auto">
           <div className="px-4 py-3 space-y-1">
-            <Link to="/calendar" className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              location.pathname === '/calendar' ? 'bg-brand-50 text-brand-600' : 'text-gray-700 hover:bg-gray-50'
-            }`}>
-              Calendario
-            </Link>
-            <Link to="/my-bookings" className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              location.pathname === '/my-bookings' ? 'bg-brand-50 text-brand-600' : 'text-gray-700 hover:bg-gray-50'
-            }`}>
-              Mis Reservas
-            </Link>
-            <Link to="/community" className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              location.pathname === '/community' ? 'bg-brand-50 text-brand-600' : 'text-gray-700 hover:bg-gray-50'
-            }`}>
-              Comunidad
-            </Link>
-            <Link to="/my-certifications" className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              location.pathname === '/my-certifications' ? 'bg-brand-50 text-brand-600' : 'text-gray-700 hover:bg-gray-50'
-            }`}>
-              Permisos de Uso
-            </Link>
             <Link to="/notifications" className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               location.pathname === '/notifications' ? 'bg-brand-50 text-brand-600' : 'text-gray-700 hover:bg-gray-50'
             }`}>

@@ -3,9 +3,11 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import listPlugin from '@fullcalendar/list';
 import esLocale from '@fullcalendar/core/locales/es';
 import { Booking, Training, BusinessHours, Maintenance } from '../../types';
 import { PURPOSE_LABELS } from '../../utils/dateHelpers';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +43,26 @@ function isWithinBusinessHours(date: Date, businessHours: BusinessHours[]): bool
   return slotMinutes >= openMinutes(openH, openM) && slotMinutes < openMinutes(closeH, closeM);
 }
 function openMinutes(h: number, m: number) { return h * 60 + m; }
+
+function getBookingResourceSummary(bookings: Booking[]): string {
+  if (bookings.every((booking) => !booking.resource)) {
+    return bookings[0].groupName ?? 'Sin maquina asignada';
+  }
+
+  return bookings
+    .filter((booking) => booking.resource)
+    .map((booking) => booking.resource!.name)
+    .join(', ');
+}
+
+function getBookingTitle(bookings: Booking[]): string {
+  const first = bookings[0];
+  return `${getBookingOwnerLabel(first)} - ${getBookingResourceSummary(bookings)}`;
+}
+
+function getBookingOwnerLabel(booking: Booking): string {
+  return booking.groupName ? `${booking.groupName} - ${booking.user.name}` : booking.user.name;
+}
 
 
 /**
@@ -96,8 +118,12 @@ function makeClusterEvent(group: VisibleFCEvent[]) {
     if (e.extendedProps.kind === 'training') return { kind: 'training', training: e.extendedProps.training! };
     return { kind: 'booking', bookings: e.extendedProps.bookings! };
   });
+  const title = items.map((item) =>
+    item.kind === 'booking' ? getBookingTitle(item.bookings) : item.training.title
+  ).join(' - ');
   return {
     id: `cluster-${group.map((e) => e.id).join('_')}`,
+    title: `${items.length} actividades: ${title}`,
     start: minStart,
     end: maxEnd,
     backgroundColor: '#475569',
@@ -206,7 +232,7 @@ export default function CalendarView({
       const key = `${first.userId}_${first.startTime}_${first.endTime}_${first.purpose}`;
       all.push({
         id: `booking-group-${key}`,
-        title: first.user.name,
+        title: getBookingTitle(group),
         start: first.startTime,
         end: first.endTime,
         backgroundColor: isMulti ? 'transparent' : color,
@@ -219,6 +245,7 @@ export default function CalendarView({
     trainings.forEach((t) => {
       all.push({
         id: `training-label-${t.id}`,
+        title: t.title,
         start: t.startTime,
         end: t.endTime,
         backgroundColor: '#f59e0b',
@@ -255,6 +282,7 @@ export default function CalendarView({
     // Eventos de mantención visibles (con etiqueta)
     const maintenanceLabels = maintenances.map((m) => ({
       id: `maintenance-label-${m.id}`,
+      title: `Mantencion - ${m.title}`,
       start: m.startTime,
       end: m.endTime,
       backgroundColor: '#dc2626',
@@ -296,7 +324,8 @@ export default function CalendarView({
       }))
     : [{ daysOfWeek: [1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '17:00' }];
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const isMobile = useIsMobile();
+  const calendarView = isMobile ? 'listWeek' : 'timeGridWeek';
 
   // ─── Handlers ───────────────────────────────────────────────────────────
 
@@ -377,13 +406,14 @@ export default function CalendarView({
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
         <FullCalendar
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView={isMobile ? 'timeGridDay' : 'timeGridWeek'}
+          key={calendarView}
+          plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+          initialView={calendarView}
           locale={esLocale}
           headerToolbar={isMobile ? {
-            left: 'prev,next', center: 'title', right: 'timeGridDay,timeGridWeek',
+            left: 'prev,next', center: 'title', right: 'listWeek,timeGridDay',
           } : {
-            left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay',
+            left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
           }}
           events={events}
           slotMinTime="08:00:00"
@@ -397,15 +427,24 @@ export default function CalendarView({
           businessHours={fcBusinessHours}
           eventContent={(eventInfo) => {
             const props = eventInfo.event.extendedProps;
+            const isListView = eventInfo.view.type.startsWith('list');
 
             // Cluster
             if (props.isCluster) {
               const items = props.clusterItems as ClusterItem[];
               const typeLabels = items.map((it) =>
-                it.kind === 'booking' ? it.bookings[0].user.name
+                it.kind === 'booking' ? getBookingTitle(it.bookings)
                 : it.kind === 'training' ? it.training.title
                 : 'Permiso de Uso'
               );
+              if (isListView) {
+                return (
+                  <div className="py-1">
+                    <p className="font-semibold text-sm text-gray-900">{items.length} actividades</p>
+                    <p className="text-xs text-gray-500">{typeLabels.join(' - ')}</p>
+                  </div>
+                );
+              }
               return (
                 <div className="p-1 overflow-hidden">
                   <p className="font-semibold text-xs">{items.length} actividades</p>
@@ -420,6 +459,16 @@ export default function CalendarView({
             // Training label individual
             if (props.kind === 'training') {
               const t = props.training as Training;
+              if (isListView) {
+                return (
+                  <div className="py-1">
+                    <p className="font-semibold text-sm text-gray-900">{t.title}</p>
+                    <p className="text-xs text-gray-500">
+                      Capacitacion{t.exemptions.length > 0 ? ` - Libre: ${t.exemptions.map((e) => e.resource.name).join(', ')}` : ''}
+                    </p>
+                  </div>
+                );
+              }
               return (
                 <div className="p-1 overflow-hidden">
                   <p className="font-semibold text-xs truncate">{t.title}</p>
@@ -436,6 +485,14 @@ export default function CalendarView({
             // Mantención individual
             if (props.kind === 'maintenance') {
               const m = props.maintenance as Maintenance;
+              if (isListView) {
+                return (
+                  <div className="py-1">
+                    <p className="font-semibold text-sm text-gray-900">Mantencion - {m.title}</p>
+                    {m.description && <p className="text-xs text-gray-500">{m.description}</p>}
+                  </div>
+                );
+              }
               return (
                 <div className="p-1 overflow-hidden">
                   <p className="font-semibold text-xs truncate">🔧 {m.title}</p>
@@ -449,6 +506,16 @@ export default function CalendarView({
             const first = bGroup?.[0];
             if (!first) return null;
             const isMulti = bGroup.length > 1;
+            const resourceSummary = getBookingResourceSummary(bGroup);
+            if (isListView) {
+              return (
+                <div className="py-1">
+                  <p className="font-semibold text-sm text-gray-900">{getBookingOwnerLabel(first)}</p>
+                  <p className="text-xs text-gray-500">{resourceSummary}</p>
+                  <p className="text-xs text-gray-400">{PURPOSE_LABELS[first.purpose]}</p>
+                </div>
+              );
+            }
             if (isMulti) {
               return (
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 50%, #dc2626 100%)', borderRadius: 'inherit', overflow: 'hidden' }}>
@@ -469,9 +536,7 @@ export default function CalendarView({
                 <div>
                   <p className="font-semibold text-xs truncate">{first.user.name}</p>
                   <p className="text-xs opacity-80 truncate">
-                    {bGroup.every(b => !b.resource)
-                      ? (first.groupName ?? 'Sin máquina asignada')
-                      : bGroup.filter(b => b.resource).map((b) => b.resource!.name).join(', ')}
+                    {resourceSummary}
                   </p>
                   <p className="text-xs opacity-75">{PURPOSE_LABELS[first.purpose]}</p>
                 </div>
