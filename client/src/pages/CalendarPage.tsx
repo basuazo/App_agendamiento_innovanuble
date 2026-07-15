@@ -117,10 +117,13 @@ export default function CalendarPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [enrollTargetId, setEnrollTargetId] = useState('');
   const [filterGroup, setFilterGroup] = useState('');
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const moreActionsRef = useRef<HTMLDivElement>(null);
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'LIDER_COMUNITARIA';
   const canManageTrainings = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const canManageMaintenance = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const hasMoreActions = canManageTrainings || canManageMaintenance;
 
   const fetchTrainings = async () => {
     try {
@@ -170,6 +173,16 @@ export default function CalendarPage() {
       userService.getAll().then(setUsers).catch(() => {});
     }
   }, [fetchAll, fetchResources, currentSpaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (moreActionsRef.current && !moreActionsRef.current.contains(e.target as Node)) {
+        setMoreActionsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const handleSlotClick = (date: Date) => {
     setSelectedDate(date);
@@ -355,20 +368,66 @@ export default function CalendarPage() {
               : 'Haz click en un horario libre para reservar'}
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex w-full gap-2 sm:w-auto md:flex-wrap">
           <button
             onClick={() => setBookingModalOpen(true)}
-            className="inline-flex items-center gap-2 bg-brand-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors"
+            className="inline-flex min-h-[44px] flex-1 md:flex-none items-center justify-center gap-2 bg-brand-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Nueva Reserva
           </button>
+          {hasMoreActions && (
+            <div className="relative md:hidden" ref={moreActionsRef}>
+              <button
+                type="button"
+                onClick={() => setMoreActionsOpen((prev) => !prev)}
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+                aria-expanded={moreActionsOpen}
+              >
+                Más
+                <svg className={`w-4 h-4 transition-transform ${moreActionsOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {moreActionsOpen && (
+                <div className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+                  {canManageTrainings && (
+                    <button
+                      type="button"
+                      onClick={() => { setMoreActionsOpen(false); setEditingTraining(null); setTrainingModalOpen(true); }}
+                      className="flex min-h-[44px] w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    >
+                      Capacitación
+                    </button>
+                  )}
+                  {canManageMaintenance && (
+                    <button
+                      type="button"
+                      onClick={() => { setMoreActionsOpen(false); setExceptionalModalOpen(true); setSelectedDate(undefined); }}
+                      className="flex min-h-[44px] w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    >
+                      Hora Excepcional
+                    </button>
+                  )}
+                  {canManageMaintenance && (
+                    <button
+                      type="button"
+                      onClick={() => { setMoreActionsOpen(false); setEditingMaintenance(null); setMaintenanceModalOpen(true); setSelectedDate(undefined); }}
+                      className="flex min-h-[44px] w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    >
+                      Mantención
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {canManageTrainings && (
             <button
               onClick={() => { setEditingTraining(null); setTrainingModalOpen(true); }}
-              className="inline-flex items-center gap-2 bg-amber-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors"
+              className="hidden md:inline-flex min-h-[44px] items-center gap-2 bg-amber-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -379,7 +438,7 @@ export default function CalendarPage() {
           {canManageMaintenance && (
             <button
               onClick={() => { setExceptionalModalOpen(true); setSelectedDate(undefined); }}
-              className="inline-flex items-center gap-2 bg-orange-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
+              className="hidden md:inline-flex min-h-[44px] items-center gap-2 bg-orange-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -390,7 +449,7 @@ export default function CalendarPage() {
           {canManageMaintenance && (
             <button
               onClick={() => { setEditingMaintenance(null); setMaintenanceModalOpen(true); setSelectedDate(undefined); }}
-              className="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+              className="hidden md:inline-flex min-h-[44px] items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -431,8 +490,8 @@ export default function CalendarPage() {
       )}
 
       {/* Filtro por agrupación */}
-      <div className="mb-4 flex items-center gap-2">
-        <div className="relative">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:w-auto">
           <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
           </svg>
@@ -441,12 +500,12 @@ export default function CalendarPage() {
             value={filterGroup}
             onChange={(e) => setFilterGroup(e.target.value)}
             placeholder="Filtrar por agrupación o usuaria..."
-            className="pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-64"
+            className="min-h-[44px] w-full sm:w-64 pl-9 pr-9 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           {filterGroup && (
             <button
               onClick={() => setFilterGroup('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-1.5 top-1/2 flex min-h-[44px] w-9 -translate-y-1/2 items-center justify-center text-gray-400 hover:text-gray-600"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -482,8 +541,8 @@ export default function CalendarPage() {
 
       {/* Mini-dialog de elección (solo admin) */}
       {actionChoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-6">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-xs max-h-[90dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
             <h3 className="text-lg font-bold text-gray-900 mb-1">¿Qué deseas crear?</h3>
             <p className="text-sm text-gray-500 mb-5">
               Horario:{' '}
@@ -581,9 +640,9 @@ export default function CalendarPage() {
           d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
+          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4">
+            <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[90dvh] overflow-y-auto">
+              <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full mb-2">
@@ -773,8 +832,8 @@ export default function CalendarPage() {
           d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4">
+            <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm max-h-[90dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 bg-red-100 px-2 py-0.5 rounded-full mb-2">

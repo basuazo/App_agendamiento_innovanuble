@@ -249,8 +249,8 @@ export default function CategoriesPage() {
 
       {/* Modal de formulario */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm max-h-[90dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-5">
               {editing ? 'Editar Categoría' : 'Nueva Categoría'}
             </h2>

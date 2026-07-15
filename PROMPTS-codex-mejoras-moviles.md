@@ -61,11 +61,13 @@ Contexto: `client/src/components/calendar/CalendarView.tsx` ya usa `dayGridPlugi
 
 **Tarea:** Que los modales principales ocupen todo el ancho y suban desde abajo en móvil (patrón bottom-sheet), manteniendo el diseño centrado en desktop.
 
-Aplica el patrón a estos archivos (empieza por el wizard, que es el flujo central):
+Aplica el patrón a **todos los overlays modales** del cliente (búscalos por `fixed inset-0`). Empieza por el wizard, que es el flujo central:
 - `client/src/components/booking/BookingWizard.tsx`
+- `client/src/components/booking/BookingModal.tsx` (si está en uso)
 - `client/src/components/booking/ExceptionalBookingModal.tsx`
 - `client/src/components/admin/TrainingModal.tsx`
 - `client/src/components/admin/MaintenanceModal.tsx`
+- `client/src/components/shared/ConfirmModal.tsx`
 - Los modales de detalle inline en `client/src/pages/CalendarPage.tsx` (capacitación y mantención) y el mini-dialog de elección.
 
 Para cada overlay:
@@ -74,7 +76,12 @@ Para cada overlay:
 3. Añadir safe-area inferior donde haya botones de acción al fondo: `pb-[env(safe-area-inset-bottom)]` o padding equivalente.
 4. No cambiar la lógica interna de pasos/formularios; solo el contenedor y clases de presentación.
 
-**Verificación:** `npx tsc --noEmit` pasa; en 375px el wizard y los modales suben desde abajo, ocupan el ancho completo y se completan sin scroll horizontal ni zoom; en desktop siguen centrados igual que antes.
+5. **IMPORTANTE — coordinar con la barra de navegación inferior.** `BottomNav.tsx` es `fixed bottom-0 z-50` y los overlays modales también usan `z-50`, así que un bottom-sheet chocaría con la barra justo en la zona de botones. Resuélvelo así:
+   - Sube el z-index de **todos** los overlays modales a `z-[60]` (backdrop incluido) para que el sheet y su fondo oscuro queden **por encima** de la barra inferior y la tapen por completo mientras el modal está abierto.
+   - Verifica que el backdrop (`bg-black/50 fixed inset-0`) cubra toda la pantalla incluyendo la zona de la barra, para que no quede un borde de la `BottomNav` asomando bajo el sheet.
+   - No hace falta desmontar la `BottomNav`; basta con el z-index correcto y que el backdrop la cubra.
+
+**Verificación:** `npx tsc --noEmit` pasa; en 375px el wizard y los modales suben desde abajo, ocupan el ancho completo y se completan sin scroll horizontal ni zoom; **con un modal abierto, la barra inferior queda tapada por el backdrop y no se solapa con los botones del sheet**; en desktop siguen centrados igual que antes.
 
 ---
 

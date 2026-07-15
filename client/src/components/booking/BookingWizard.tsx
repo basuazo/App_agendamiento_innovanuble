@@ -487,15 +487,15 @@ export default function BookingWizard({
   // ══════════════════════════════════════════════════════════════════════════
 
   const wrapModal = (children: React.ReactNode) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[90dvh] flex flex-col overflow-hidden">
         {children}
       </div>
 
       {/* Modal: ¿Qué vas a producir? */}
       {showProduceModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-6">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 sm:px-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xs max-h-[90dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-brand-50 flex items-center justify-center shrink-0">
                 <span className="text-xl">🧵</span>
@@ -553,8 +553,8 @@ export default function BookingWizard({
 
       {/* Diálogo de confirmación de cancelar */}
       {confirmCancel && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-6">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 sm:px-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xs max-h-[90dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
                 <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -589,7 +589,7 @@ export default function BookingWizard({
   // ── WHO ────────────────────────────────────────────────────────────────────
   if (step === 'WHO') {
     return wrapModal(
-      <div className="p-6 overflow-y-auto">
+      <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 overflow-y-auto">
         <div className="flex items-start justify-between mb-5">
           <div>
             <p className="text-xs text-gray-400 mb-1">
@@ -734,7 +734,7 @@ export default function BookingWizard({
     })();
 
     return wrapModal(
-      <div className="p-6 overflow-y-auto">
+      <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 overflow-y-auto">
         <div className="flex items-start justify-between mb-2">
           <StepIndicator current={stepNumber()} total={totalSteps} />
           <CloseButton onClick={requestClose} />
@@ -855,7 +855,7 @@ export default function BookingWizard({
   // ── GROUP ──────────────────────────────────────────────────────────────────
   if (step === 'GROUP') {
     return wrapModal(
-      <div className="p-6 overflow-y-auto">
+      <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 overflow-y-auto">
         <div className="flex items-start justify-between mb-2">
           <StepIndicator current={stepNumber()} total={totalSteps} />
           <CloseButton onClick={requestClose} />
@@ -959,7 +959,7 @@ export default function BookingWizard({
     };
 
     return wrapModal(
-      <div className="p-6 overflow-y-auto">
+      <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 overflow-y-auto">
         <div className="flex items-start justify-between mb-2">
           <StepIndicator current={stepNumber()} total={totalSteps} />
           <CloseButton onClick={requestClose} />
@@ -1133,7 +1133,7 @@ export default function BookingWizard({
   // ── DETAILS ────────────────────────────────────────────────────────────────
   if (step === 'DETAILS') {
     return wrapModal(
-      <div className="p-6 overflow-y-auto">
+      <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 overflow-y-auto">
         <div className="flex items-start justify-between mb-2">
           <StepIndicator current={stepNumber()} total={totalSteps} />
           <CloseButton onClick={requestClose} />
@@ -1257,7 +1257,7 @@ export default function BookingWizard({
       : parseInt(state.groupSize, 10) || 1;
 
     return wrapModal(
-      <div className="p-6 overflow-y-auto">
+      <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 overflow-y-auto">
         <div className="flex items-start justify-between mb-2">
           <StepIndicator current={totalSteps} total={totalSteps} />
           <CloseButton onClick={requestClose} />

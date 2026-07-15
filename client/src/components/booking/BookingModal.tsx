@@ -295,8 +295,8 @@ export default function BookingModal({ isOpen, onClose, preselectedDate, presele
   // ── Step 0: Admin user selection ─────────────────────────────────────────
   if (step === 0) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4">
+        <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[90dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Nueva Reserva</h2>
@@ -389,9 +389,9 @@ export default function BookingModal({ isOpen, onClose, preselectedDate, presele
     const availableCategories = Array.from(categoryMap.values()).sort((a, b) => a.order - b.order);
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
+      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4">
+        <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[90dvh] overflow-y-auto">
+          <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
             <div className="flex items-center justify-between mb-5">
               <div>
                 {isAdmin && (
@@ -461,9 +461,9 @@ export default function BookingModal({ isOpen, onClose, preselectedDate, presele
 
   // ── Step 2: Machine + booking details ───────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[90dvh] overflow-y-auto">
+        <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
           <div className="flex items-center justify-between mb-6">
             <div>
               {isAdmin && !bookingForSelf && targetUserId && (

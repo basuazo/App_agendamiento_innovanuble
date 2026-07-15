@@ -64,6 +64,12 @@
 }
 
 @media (max-width: 767px) {
+  button,
+  input,
+  select {
+    min-height: 44px;
+  }
+
   .fc .fc-toolbar {
     gap: 0.5rem;
   }

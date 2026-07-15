@@ -321,7 +321,7 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white shadow-lg max-h-[calc(100dvh-4rem)] overflow-y-auto">
           <div className="px-4 py-3 space-y-1">
-            <Link to="/notifications" className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            <Link to="/notifications" className={`flex min-h-[44px] items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               location.pathname === '/notifications' ? 'bg-brand-50 text-brand-600' : 'text-gray-700 hover:bg-gray-50'
             }`}>
               Notificaciones
@@ -341,7 +341,7 @@ export default function Navbar() {
                     <button
                       key={s.id}
                       onClick={() => { setCurrentSpace(s.id); setMobileMenuOpen(false); }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      className={`w-full flex min-h-[44px] items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                         currentSpaceId === s.id
                           ? 'bg-purple-50 text-purple-700'
                           : 'text-gray-700 hover:bg-gray-50'
@@ -365,7 +365,7 @@ export default function Navbar() {
             {user?.role === 'SUPER_ADMIN' && (
               <Link
                 to="/superadmin/spaces"
-                className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`block min-h-[44px] px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   location.pathname === '/superadmin/spaces' ? 'bg-brand-50 text-brand-600' : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -377,7 +377,7 @@ export default function Navbar() {
               <div>
                 <button
                   onClick={() => setMobileAdminOpen((prev) => !prev)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  className={`w-full flex min-h-[44px] items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     location.pathname.startsWith('/admin') ? 'bg-brand-50 text-brand-600' : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -392,40 +392,40 @@ export default function Navbar() {
                 {mobileAdminOpen && (
                   <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-100 pl-3">
                     {canManageCategories && (
-                      <Link to="/admin/categories" className="block px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Link to="/admin/categories" className="block min-h-[44px] px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                         Categorías
                       </Link>
                     )}
-                    <Link to="/admin/resources" className="block px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <Link to="/admin/resources" className="block min-h-[44px] px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                       Recursos
                     </Link>
                     {canManageUsers && (
-                      <Link to="/admin/users" className="block px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Link to="/admin/users" className="block min-h-[44px] px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                         Usuarios
                       </Link>
                     )}
                     {canManageBookings && (
-                      <Link to="/admin/bookings" className="block px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Link to="/admin/bookings" className="block min-h-[44px] px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                         Todas las Reservas
                       </Link>
                     )}
                     {canManageCerts && (
-                      <Link to="/admin/certifications" className="block px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Link to="/admin/certifications" className="block min-h-[44px] px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                         Permisos de Uso
                       </Link>
                     )}
                     {canManageTrainings && (
-                      <Link to="/admin/trainings" className="block px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Link to="/admin/trainings" className="block min-h-[44px] px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                         Capacitaciones
                       </Link>
                     )}
                     {canManageSettings && (
-                      <Link to="/admin/settings" className="block px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Link to="/admin/settings" className="block min-h-[44px] px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                         Horarios
                       </Link>
                     )}
                     {canManageSettings && (
-                      <Link to="/admin/customization" className="block px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Link to="/admin/customization" className="block min-h-[44px] px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                         Personalización
                       </Link>
                     )}
@@ -436,7 +436,7 @@ export default function Navbar() {
           </div>
 
           <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-            <Link to="/profile" className="group" onClick={() => setMobileMenuOpen(false)}>
+            <Link to="/profile" className="group flex min-h-[44px] flex-col justify-center" onClick={() => setMobileMenuOpen(false)}>
               <p className="text-sm font-medium text-gray-900 group-hover:text-brand-600 transition-colors">{user?.name}</p>
               <p className="text-xs text-gray-500">
                 {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : user?.role === 'ADMIN' ? 'Administrador' : user?.role === 'LIDER_COMUNITARIA' ? 'Líder Comunitaria' : 'Usuario'}
@@ -444,7 +444,7 @@ export default function Navbar() {
             </Link>
             <button
               onClick={handleLogout}
-              className="text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
+              className="min-h-[44px] px-2 text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
             >
               Salir
             </button>

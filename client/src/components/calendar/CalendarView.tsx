@@ -44,6 +44,47 @@ function isWithinBusinessHours(date: Date, businessHours: BusinessHours[]): bool
 }
 function openMinutes(h: number, m: number) { return h * 60 + m; }
 
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function addDays(d: Date, n: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+function sameDay(a: Date, b: Date) {
+  return startOfDay(a).getTime() === startOfDay(b).getTime();
+}
+
+function computeInitialDate(now: Date, isMobile: boolean, eventStarts: Date[]): Date {
+  const day = now.getDay();
+  const hour = now.getHours();
+  const inWeekendWindow = (day === 5 && hour >= 20) || day === 6 || day === 0;
+
+  let weekendHasEvents = false;
+  if (inWeekendWindow) {
+    const satOffset = day === 5 ? 1 : day === 6 ? 0 : -1;
+    const sat = addDays(now, satOffset);
+    const sun = addDays(sat, 1);
+    weekendHasEvents = eventStarts.some((eventStart) => sameDay(eventStart, sat) || sameDay(eventStart, sun));
+  }
+
+  if (inWeekendWindow && !weekendHasEvents) {
+    const daysUntilNextMonday = ((8 - day) % 7) || 7;
+    return startOfDay(addDays(now, daysUntilNextMonday));
+  }
+
+  if (isMobile && hour >= 18) {
+    return startOfDay(addDays(now, 1));
+  }
+
+  return startOfDay(now);
+}
+
 function getBookingResourceSummary(bookings: Booking[]): string {
   if (bookings.every((booking) => !booking.resource)) {
     return bookings[0].groupName ?? 'Sin maquina asignada';
@@ -325,7 +366,15 @@ export default function CalendarView({
     : [{ daysOfWeek: [1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '17:00' }];
 
   const isMobile = useIsMobile();
-  const calendarView = isMobile ? 'listWeek' : 'timeGridWeek';
+  const calendarView = isMobile ? 'listRolling' : 'timeGridWeek';
+  const initialDate = useMemo(() => {
+    const eventStarts = [
+      ...bookings.map((booking) => new Date(booking.startTime)),
+      ...trainings.map((training) => new Date(training.startTime)),
+      ...maintenances.map((maintenance) => new Date(maintenance.startTime)),
+    ];
+    return computeInitialDate(new Date(), isMobile, eventStarts);
+  }, [bookings, trainings, maintenances, isMobile]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────
 
@@ -409,9 +458,13 @@ export default function CalendarView({
           key={calendarView}
           plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
           initialView={calendarView}
+          initialDate={initialDate}
           locale={esLocale}
+          views={{
+            listRolling: { type: 'list', duration: { days: 7 }, buttonText: 'Agenda' },
+          }}
           headerToolbar={isMobile ? {
-            left: 'prev,next', center: 'title', right: 'listWeek,timeGridDay',
+            left: 'prev,next', center: 'title', right: 'listRolling,timeGridDay',
           } : {
             left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
           }}
@@ -582,9 +635,9 @@ export default function CalendarView({
 
       {/* ── Popup: horario no disponible ────────────────────────────────── */}
       {showClosedPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4"
           onClick={() => setShowClosedPopup(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm max-h-[90dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-3 mb-4">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
                 <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -608,9 +661,9 @@ export default function CalendarView({
 
       {/* ── Popup: horario de colación ────────────────────────────────────── */}
       {showLunchPopup && lunchBreak && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4"
           onClick={() => setShowLunchPopup(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm max-h-[90dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-3 mb-4">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
                 <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -636,9 +689,9 @@ export default function CalendarView({
 
       {/* ── Modal de actividades agrupadas (cluster) ─────────────────────── */}
       {clusterModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4"
           onClick={() => setClusterModal(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm max-h-[90dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-semibold text-gray-900 capitalize">
@@ -733,9 +786,9 @@ export default function CalendarView({
         const isActive = first.status !== 'CANCELLED' && first.status !== 'REJECTED';
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 sm:px-4"
             onClick={closeDetail}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm max-h-[90dvh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900">Detalle de reserva</h3>
                 <button onClick={closeDetail}
