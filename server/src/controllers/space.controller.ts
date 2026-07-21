@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../lib/prisma';
 import { logAudit } from '../lib/audit';
+import logger from '../lib/logger';
 
 export const getSpaces = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -99,11 +100,39 @@ export const deleteSpace = async (req: AuthRequest, res: Response): Promise<void
     }
 
     if (space.users.length > 0) {
-      res.status(400).json({ error: 'No se puede eliminar un espacio con usuarias asignadas' });
+      res.status(400).json({ error: 'No se puede eliminar un espacio con usuarias asignadas. Elimina o reasigna primero las usuarias.' });
       return;
     }
 
-    await prisma.space.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      const [resources, trainings, categories] = await Promise.all([
+        tx.resource.findMany({ where: { spaceId: id }, select: { id: true } }),
+        tx.training.findMany({ where: { spaceId: id }, select: { id: true } }),
+        tx.category.findMany({ where: { spaceId: id }, select: { id: true } }),
+      ]);
+      const resourceIds = resources.map((resource) => resource.id);
+      const trainingIds = trainings.map((training) => training.id);
+      const categoryIds = categories.map((category) => category.id);
+
+      await tx.booking.deleteMany({ where: { resourceId: { in: resourceIds } } });
+      await tx.trainingExemption.deleteMany({
+        where: {
+          OR: [
+            { trainingId: { in: trainingIds } },
+            { resourceId: { in: resourceIds } },
+          ],
+        },
+      });
+      await tx.trainingEnrollment.deleteMany({ where: { trainingId: { in: trainingIds } } });
+      await tx.training.deleteMany({ where: { spaceId: id } });
+      await tx.certification.deleteMany({ where: { categoryId: { in: categoryIds } } });
+      await tx.resource.deleteMany({ where: { spaceId: id } });
+      await tx.category.deleteMany({ where: { spaceId: id } });
+      await tx.maintenance.deleteMany({ where: { spaceId: id } });
+      await tx.comment.deleteMany({ where: { spaceId: id } });
+      await tx.businessHours.deleteMany({ where: { spaceId: id } });
+      await tx.space.delete({ where: { id } });
+    });
 
     await logAudit({
       actorId: req.user!.id,
@@ -114,7 +143,8 @@ export const deleteSpace = async (req: AuthRequest, res: Response): Promise<void
     });
 
     res.json({ message: 'Espacio eliminado' });
-  } catch {
+  } catch (error) {
+    logger.error({ err: error }, 'Error al eliminar espacio');
     res.status(500).json({ error: 'Error al eliminar espacio' });
   }
 };
