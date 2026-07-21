@@ -165,7 +165,7 @@ async function main() {
   await prisma.user.create({
     data: {
       name: 'Super Administrador',
-      email: 'super@cowork.cl',
+      username: '999999999',
       password: superAdminPassword,
       role: 'SUPER_ADMIN' as Role,
       isVerified: true,
@@ -176,7 +176,7 @@ async function main() {
   const admin = await prisma.user.create({
     data: {
       name: 'Administrador Puente Alto',
-      email: 'admin@cowork.cl',
+      username: '111111111',
       password: adminPassword,
       role: Role.ADMIN,
       isVerified: true,
@@ -185,13 +185,13 @@ async function main() {
   });
 
   const maria = await prisma.user.create({
-    data: { name: 'María González', email: 'maria@test.cl', password: hashedPassword, isVerified: true, spaceId: SPACE_IDS.puenteAlto },
+    data: { name: 'María González', username: '222222222', password: hashedPassword, isVerified: true, spaceId: SPACE_IDS.puenteAlto },
   });
   const juan = await prisma.user.create({
-    data: { name: 'Juan Pérez', email: 'juan@test.cl', password: hashedPassword, isVerified: true, spaceId: SPACE_IDS.puenteAlto },
+    data: { name: 'Juan Pérez', username: '333333333', password: hashedPassword, isVerified: true, spaceId: SPACE_IDS.puenteAlto },
   });
   await prisma.user.create({
-    data: { name: 'Sofía Ramírez', email: 'sofia@test.cl', password: hashedPassword, isVerified: true, spaceId: SPACE_IDS.puenteAlto },
+    data: { name: 'Sofía Ramírez', username: '444444444', password: hashedPassword, isVerified: true, spaceId: SPACE_IDS.puenteAlto },
   });
 
   console.log('✅ Usuarios creados');
@@ -291,11 +291,11 @@ async function main() {
   console.log('✅ Comentarios creados');
   console.log('\n🎉 Seed completado exitosamente!\n');
   console.log('Credenciales:');
-  console.log('  Super Admin: super@cowork.cl  / super123');
-  console.log('  Admin PA:    admin@cowork.cl  / admin123');
-  console.log('  User 1:      maria@test.cl          / password123');
-  console.log('  User 2:      juan@test.cl           / password123');
-  console.log('  User 3:      sofia@test.cl          / password123');
+  console.log('  Super Admin: 999999999  / super123');
+  console.log('  Admin PA:    111111111  / admin123');
+  console.log('  User 1:      222222222          / password123');
+  console.log('  User 2:      333333333           / password123');
+  console.log('  User 3:      444444444          / password123');
 }
 
 main()

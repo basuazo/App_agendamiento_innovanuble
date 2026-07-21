@@ -18,7 +18,7 @@ function fmtDateTime(d: Date) {
 }
 
 const BOOKING_INCLUDE = {
-  user: { select: { id: true, name: true, email: true, organization: true } },
+  user: { select: { id: true, name: true, username: true, organization: true } },
   resource: { select: { id: true, name: true, category: { select: { id: true, name: true, slug: true, color: true } } } },
 };
 
@@ -743,7 +743,7 @@ export const approveBooking = async (req: AuthRequest, res: Response): Promise<v
     const booking = await prisma.booking.findUnique({
       where: { id: req.params.id },
       include: {
-        user: { select: { id: true, name: true, email: true, organization: true } },
+        user: { select: { id: true, name: true, username: true, organization: true } },
         resource: { include: { category: { select: { id: true, name: true, slug: true, color: true } } } },
       },
     });
@@ -875,7 +875,7 @@ export const exportBookings = async (req: AuthRequest, res: Response): Promise<v
       Recurso: b.resource?.name ?? 'Sin máquina asignada',
       Categoría: (b.resource as { category?: { name: string } } | null)?.category?.name ?? '',
       Usuario: (b.user as { name: string }).name,
-      'Email Usuario': (b.user as { email: string }).email,
+      'RUT Usuario': (b.user as { username: string }).username,
       Propósito: PURPOSE_LABELS[b.purpose] ?? b.purpose,
       'Ítem a Producir': b.produceItem ?? '',
       Cantidad: b.produceQty ?? '',

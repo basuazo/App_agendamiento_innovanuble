@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
 export interface AuthRequest extends Request {
-  user?: { id: string; role: string; email: string; spaceId?: string | null };
+  user?: { id: string; role: string; username: string; spaceId?: string | null };
 }
 
 /** Devuelve el spaceId que aplica para la petición actual.
@@ -27,7 +27,7 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
       id: string;
       role: string;
-      email: string;
+      username: string;
       spaceId?: string | null;
     };
     req.user = decoded;

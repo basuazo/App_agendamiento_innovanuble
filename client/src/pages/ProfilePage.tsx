@@ -7,7 +7,6 @@ export default function ProfilePage() {
   const { user, updateProfile } = useAuthStore();
 
   const [name, setName] = useState(user?.name ?? '');
-  const [email, setEmail] = useState(user?.email ?? '');
   const [organization, setOrganization] = useState(user?.organization ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [profileLoading, setProfileLoading] = useState(false);
@@ -20,7 +19,6 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       setName(user.name);
-      setEmail(user.email);
       setOrganization(user.organization ?? '');
       setPhone(user.phone ?? '');
     }
@@ -30,7 +28,7 @@ export default function ProfilePage() {
     e.preventDefault();
     setProfileLoading(true);
     try {
-      await updateProfile({ name, email, organization, phone });
+      await updateProfile({ name, organization, phone });
       toast.success('Perfil actualizado correctamente');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -107,14 +105,8 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">RUT</label>
+            <p className="text-sm text-gray-700 py-2">{user?.username}</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Agrupación u Organización</label>

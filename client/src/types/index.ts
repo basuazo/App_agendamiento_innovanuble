@@ -34,7 +34,7 @@ export interface SpaceCustomization {
 export interface User {
   id: string;
   name: string;
-  email: string;
+  username: string;
   phone?: string | null;
   organization?: string | null;
   role: Role;
@@ -75,7 +75,7 @@ export interface Booking {
   isExceptional?: boolean;
   googleCalendarEventId?: string;
   createdAt: string;
-  user: { id: string; name: string; email: string; organization?: string | null };
+  user: { id: string; name: string; username: string; organization?: string | null };
   resource: { id: string; name: string; category: Category } | null;
 }
 
@@ -116,7 +116,7 @@ export interface TrainingEnrollment {
   userId: string;
   status: EnrollmentStatus;
   createdAt: string;
-  user: { id: string; name: string; email: string; organization?: string | null };
+  user: { id: string; name: string; username: string; organization?: string | null };
 }
 
 export interface Training {
@@ -154,7 +154,7 @@ export interface Certification {
   certifiedById: string;
   notes?: string;
   certifier?: { name: string };
-  user?: { id: string; name: string; email: string };
+  user?: { id: string; name: string; username: string };
 }
 
 export interface BusinessHours {

@@ -51,7 +51,7 @@ export default function UsersPage() {
   const displayUsers = useMemo(() => {
     const q = search.toLowerCase();
     const list = q
-      ? users.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.organization ?? '').toLowerCase().includes(q))
+      ? users.filter((u) => u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q) || (u.organization ?? '').toLowerCase().includes(q))
       : users;
     if (!sort) return list;
     return [...list].sort((a, b) => {
@@ -99,7 +99,7 @@ export default function UsersPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre o email..."
+            placeholder="Buscar por nombre o RUT..."
             className="w-64 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           {canDeleteUsers && (
@@ -149,7 +149,7 @@ export default function UsersPage() {
                 <tr key={u.id}>
                   <td className="px-4 py-3">
                     <p className="font-medium text-gray-900">{u.name}</p>
-                    <p className="text-gray-400 text-xs">{u.email}</p>
+                    <p className="text-gray-400 text-xs">{u.username}</p>
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-sm hidden lg:table-cell">
                     {u.organization ?? <span className="text-gray-300">—</span>}
@@ -272,7 +272,7 @@ export default function UsersPage() {
 
 function EditUserModal({ user, isSuperAdmin, canChangeRole, canChangePassword, onClose }: { user: User; isSuperAdmin: boolean; canChangeRole: boolean; canChangePassword: boolean; onClose: () => void }) {
   const [name, setName] = useState(user.name);
-  const [email, setEmail] = useState(user.email);
+  const [username, setUsername] = useState(user.username);
   const [organization, setOrganization] = useState(user.organization ?? '');
   const [phone, setPhone] = useState(user.phone ?? '');
   const [password, setPassword] = useState('');
@@ -293,7 +293,7 @@ function EditUserModal({ user, isSuperAdmin, canChangeRole, canChangePassword, o
     try {
       await userService.update(user.id, {
         name,
-        email,
+        username,
         organization,
         phone,
         ...(password ? { password } : {}),
@@ -322,9 +322,11 @@ function EditUserModal({ user, isSuperAdmin, canChangeRole, canChangePassword, o
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
+            <label className="block text-sm font-medium text-gray-700 mb-1">RUT *</label>
+            <input type="text" inputMode="text" value={username} onChange={(e) => setUsername(e.target.value)} required
+              placeholder="12.345.678-9"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            <p className="mt-1 text-xs text-gray-500">Puedes escribirlo con o sin puntos y guion.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Agrupación u Organización</label>
@@ -389,7 +391,7 @@ function EditUserModal({ user, isSuperAdmin, canChangeRole, canChangePassword, o
 
 function CreateUserModal({ onClose, isSuperAdmin, canChangeRole }: { onClose: () => void; isSuperAdmin: boolean; canChangeRole: boolean }) {
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [organization, setOrganization] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -412,7 +414,7 @@ function CreateUserModal({ onClose, isSuperAdmin, canChangeRole }: { onClose: ()
     }
     setLoading(true);
     try {
-      await userService.create({ name, email, organization, phone, password, role, ...(isSuperAdmin ? { spaceId } : {}) });
+      await userService.create({ name, username, organization, phone, password, role, ...(isSuperAdmin ? { spaceId } : {}) });
       toast.success('Usuario creado');
       onClose();
     } catch (err: unknown) {
@@ -433,9 +435,11 @@ function CreateUserModal({ onClose, isSuperAdmin, canChangeRole }: { onClose: ()
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
+            <label className="block text-sm font-medium text-gray-700 mb-1">RUT *</label>
+            <input type="text" inputMode="text" value={username} onChange={(e) => setUsername(e.target.value)} required
+              placeholder="12.345.678-9"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            <p className="mt-1 text-xs text-gray-500">Puedes escribirlo con o sin puntos y guion.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Agrupación u Organización</label>

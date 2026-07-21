@@ -7,7 +7,7 @@ import logger from '../lib/logger';
 import { notifySpaceUsers } from '../lib/notifications';
 
 const ENROLLMENT_INCLUDE = {
-  user: { select: { id: true, name: true, email: true, organization: true } },
+  user: { select: { id: true, name: true, username: true, organization: true } },
 };
 
 const TRAINING_INCLUDE = {
@@ -320,7 +320,7 @@ export const exportTrainings = async (req: AuthRequest, res: Response): Promise<
       include: {
         enrollments: {
           include: {
-            user: { select: { name: true, email: true } },
+            user: { select: { name: true, username: true } },
           },
           orderBy: { createdAt: 'asc' },
         },
@@ -345,7 +345,7 @@ export const exportTrainings = async (req: AuthRequest, res: Response): Promise<
           Confirmadas: confirmedCount,
           'Lista de espera': waitlistCount,
           'Usuaria inscrita': '',
-          'Email usuaria': '',
+          'RUT usuaria': '',
           'Estado inscripción': '',
           'Fecha inscripción': '',
         });
@@ -361,7 +361,7 @@ export const exportTrainings = async (req: AuthRequest, res: Response): Promise<
             Confirmadas: confirmedCount,
             'Lista de espera': waitlistCount,
             'Usuaria inscrita': e.user.name,
-            'Email usuaria': e.user.email,
+            'RUT usuaria': e.user.username,
             'Estado inscripción': e.status === 'CONFIRMED' ? 'Confirmada' : 'Lista de espera',
             'Fecha inscripción': fmtDate(new Date(e.createdAt)),
           });

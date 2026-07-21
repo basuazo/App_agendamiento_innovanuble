@@ -4,8 +4,9 @@ import * as xlsx from 'xlsx';
 import prisma from '../lib/prisma';
 import { logAudit } from '../lib/audit';
 import { AuthRequest, resolveSpaceId } from '../middleware/auth.middleware';
+import { normalizeRut } from '../lib/rut';
 
-const USER_SELECT = { id: true, name: true, email: true, phone: true, organization: true, role: true, isVerified: true, spaceId: true, createdAt: true } as const;
+const USER_SELECT = { id: true, name: true, username: true, phone: true, organization: true, role: true, isVerified: true, spaceId: true, createdAt: true } as const;
 
 export const getUsers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -36,9 +37,10 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
 
 export const createUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { name, email, password, role, spaceId: bodySpaceId, organization, phone } = req.body;
-    if (!name || !email || !password) {
-      res.status(400).json({ error: 'Nombre, email y contrase√±a son requeridos' });
+    const { name, username: rawUsername, password, role, spaceId: bodySpaceId, organization, phone } = req.body;
+    const username = normalizeRut(rawUsername);
+    if (!name || !username || !password) {
+      res.status(400).json({ error: 'Nombre, RUT y contraseÒa son requeridos' });
       return;
     }
 
@@ -55,9 +57,9 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findUnique({ where: { username } });
     if (existing && !existing.deletedAt) {
-      res.status(409).json({ error: 'El email ya est√° registrado' });
+      res.status(409).json({ error: 'El RUT ya est· registrado' });
       return;
     }
 
@@ -71,7 +73,7 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
           select: USER_SELECT,
         })
       : await prisma.user.create({
-          data: { name, email, password: hashedPassword, organization: organization?.trim() || null, phone: phone?.trim() || null, role: role ?? 'USER', isVerified: true, spaceId },
+          data: { name, username, password: hashedPassword, organization: organization?.trim() || null, phone: phone?.trim() || null, role: role ?? 'USER', isVerified: true, spaceId },
           select: USER_SELECT,
         });
 
@@ -80,7 +82,7 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
       action: 'USER_CREATED',
       targetType: 'User',
       targetId: user.id,
-      meta: { name: user.name, email: user.email, role: user.role },
+      meta: { name: user.name, username: user.username, role: user.role },
     });
 
     res.status(201).json(user);
@@ -118,7 +120,7 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
       action: 'USER_DELETED',
       targetType: 'User',
       targetId: id,
-      meta: { name: user.name, email: user.email },
+      meta: { name: user.name, username: user.username },
     });
 
     res.json({ message: 'Usuario eliminado exitosamente' });
@@ -135,7 +137,7 @@ export const getAuditLogs = async (req: Request, res: Response): Promise<void> =
 
     const [logs, total] = await prisma.$transaction([
       prisma.auditLog.findMany({
-        include: { actor: { select: { id: true, name: true, email: true } } },
+        include: { actor: { select: { id: true, name: true, username: true } } },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -152,9 +154,10 @@ export const getAuditLogs = async (req: Request, res: Response): Promise<void> =
 export const updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, email, password, spaceId, organization, phone } = req.body;
+    const { name, username: rawUsername, password, spaceId, organization, phone } = req.body;
+    const username = rawUsername ? normalizeRut(rawUsername) : undefined;
 
-    if (!name && !email && !password && spaceId === undefined && organization === undefined && phone === undefined) {
+    if (!name && !username && !password && spaceId === undefined && organization === undefined && phone === undefined) {
       res.status(400).json({ error: 'Debe proporcionar al menos un campo a actualizar' });
       return;
     }
@@ -171,17 +174,17 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    if (email && email !== existing.email) {
-      const taken = await prisma.user.findUnique({ where: { email } });
+    if (username && username !== existing.username) {
+      const taken = await prisma.user.findUnique({ where: { username } });
       if (taken) {
-        res.status(409).json({ error: 'El email ya est√° registrado por otro usuario' });
+        res.status(409).json({ error: 'El RUT ya est· registrado por otro usuario' });
         return;
       }
     }
 
     const updateData: Record<string, unknown> = {};
     if (name) updateData.name = name;
-    if (email) updateData.email = email;
+    if (username) updateData.username = username;
     if (organization !== undefined) updateData.organization = organization?.trim() || null;
     if (phone !== undefined) updateData.phone = phone?.trim() || null;
     if (spaceId !== undefined) updateData.spaceId = spaceId || null;
@@ -235,7 +238,7 @@ export const verifyUser = async (req: AuthRequest, res: Response): Promise<void>
       action: 'USER_VERIFIED',
       targetType: 'User',
       targetId: id,
-      meta: { name: user.name, email: user.email },
+      meta: { name: user.name, username: user.username },
     });
 
     res.json(user);
@@ -294,7 +297,7 @@ export const exportUsers = async (req: AuthRequest, res: Response): Promise<void
 
     const rows = users.map((u) => ({
       Nombre: u.name,
-      Email: u.email,
+      RUT: u.username,
       Tel√©fono: u.phone ?? '',
       Agrupaci√≥n: u.organization ?? '',
       Rol: ROLE_LABELS[u.role] ?? u.role,

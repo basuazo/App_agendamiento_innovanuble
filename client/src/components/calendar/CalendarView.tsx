@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -56,11 +56,12 @@ function addDays(d: Date, n: number) {
   return x;
 }
 
-function sameDay(a: Date, b: Date) {
-  return startOfDay(a).getTime() === startOfDay(b).getTime();
+interface CalendarEventRange {
+  start: Date;
+  end: Date;
 }
 
-function computeInitialDate(now: Date, isMobile: boolean, eventStarts: Date[]): Date {
+function computeInitialDate(now: Date, isMobile: boolean, eventRanges: CalendarEventRange[]): Date {
   const day = now.getDay();
   const hour = now.getHours();
   const inWeekendWindow = (day === 5 && hour >= 20) || day === 6 || day === 0;
@@ -68,9 +69,9 @@ function computeInitialDate(now: Date, isMobile: boolean, eventStarts: Date[]): 
   let weekendHasEvents = false;
   if (inWeekendWindow) {
     const satOffset = day === 5 ? 1 : day === 6 ? 0 : -1;
-    const sat = addDays(now, satOffset);
-    const sun = addDays(sat, 1);
-    weekendHasEvents = eventStarts.some((eventStart) => sameDay(eventStart, sat) || sameDay(eventStart, sun));
+    const weekendStart = startOfDay(addDays(now, satOffset));
+    const weekendEnd = startOfDay(addDays(weekendStart, 2));
+    weekendHasEvents = eventRanges.some(({ start, end }) => start < weekendEnd && end > weekendStart);
   }
 
   if (inWeekendWindow && !weekendHasEvents) {
@@ -367,14 +368,22 @@ export default function CalendarView({
 
   const isMobile = useIsMobile();
   const calendarView = isMobile ? 'listRolling' : 'timeGridWeek';
+  const calendarRef = useRef<FullCalendar>(null);
   const initialDate = useMemo(() => {
-    const eventStarts = [
-      ...bookings.map((booking) => new Date(booking.startTime)),
-      ...trainings.map((training) => new Date(training.startTime)),
-      ...maintenances.map((maintenance) => new Date(maintenance.startTime)),
+    const eventRanges = [
+      ...bookings.map((booking) => ({ start: new Date(booking.startTime), end: new Date(booking.endTime) })),
+      ...trainings.map((training) => ({ start: new Date(training.startTime), end: new Date(training.endTime) })),
+      ...maintenances.map((maintenance) => ({ start: new Date(maintenance.startTime), end: new Date(maintenance.endTime) })),
     ];
-    return computeInitialDate(new Date(), isMobile, eventStarts);
+    return computeInitialDate(new Date(), isMobile, eventRanges);
   }, [bookings, trainings, maintenances, isMobile]);
+
+  useEffect(() => {
+    const calendarApi = calendarRef.current?.getApi();
+    if (calendarApi && calendarApi.view.type !== calendarView) {
+      calendarApi.changeView(calendarView);
+    }
+  }, [calendarView]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────
 
@@ -455,7 +464,7 @@ export default function CalendarView({
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
         <FullCalendar
-          key={calendarView}
+          ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
           initialView={calendarView}
           initialDate={initialDate}
@@ -702,7 +711,8 @@ export default function CalendarView({
                 </p>
               </div>
               <button onClick={() => setClusterModal(null)}
-                className="text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full p-1 -m-1 transition-colors">
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                aria-label="Cerrar actividades">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -792,7 +802,8 @@ export default function CalendarView({
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900">Detalle de reserva</h3>
                 <button onClick={closeDetail}
-                  className="text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full p-1 -m-1 transition-colors">
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                  aria-label="Cerrar detalle de reserva">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>

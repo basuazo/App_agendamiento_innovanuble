@@ -274,12 +274,17 @@ export default function CategoriesPage() {
                       key={c}
                       type="button"
                       onClick={() => setForm((f) => ({ ...f, color: c }))}
-                      className="w-7 h-7 rounded-full border-2 transition-transform hover:scale-110"
-                      style={{
-                        backgroundColor: c,
-                        borderColor: form.color === c ? '#1e40af' : 'transparent',
-                      }}
-                    />
+                      className="flex h-11 w-11 items-center justify-center rounded-full transition-transform hover:scale-105"
+                      aria-label={`Seleccionar color ${c}`}
+                    >
+                      <span
+                        className="h-7 w-7 rounded-full border-2"
+                        style={{
+                          backgroundColor: c,
+                          borderColor: form.color === c ? '#1e40af' : 'transparent',
+                        }}
+                      />
+                    </button>
                   ))}
                 </div>
                 <div className="flex items-center gap-2">
@@ -287,7 +292,7 @@ export default function CategoriesPage() {
                     type="color"
                     value={form.color}
                     onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
-                    className="w-8 h-8 rounded cursor-pointer border border-gray-300"
+                    className="h-11 w-11 cursor-pointer rounded border border-gray-300"
                   />
                   <span className="text-xs text-gray-500 font-mono">{form.color}</span>
                 </div>

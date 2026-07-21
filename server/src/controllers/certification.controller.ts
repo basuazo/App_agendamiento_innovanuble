@@ -6,7 +6,7 @@ import { logAudit } from '../lib/audit';
 const CATEGORY_SELECT = { select: { id: true, name: true, slug: true, color: true } };
 
 const CERT_INCLUDE = {
-  user: { select: { id: true, name: true, email: true } },
+  user: { select: { id: true, name: true, username: true } },
   certifier: { select: { id: true, name: true } },
   category: CATEGORY_SELECT,
 };

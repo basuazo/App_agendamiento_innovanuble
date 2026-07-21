@@ -28,20 +28,20 @@ async function main() {
   const admin = await prisma.user.create({
     data: {
       name: 'Administrador',
-      email: 'admin@cowork.cl',
+      username: '111111111',
       password: adminPassword,
       role: Role.ADMIN,
     },
   });
 
   const maria = await prisma.user.create({
-    data: { name: 'María González', email: 'maria@test.cl', password: hashedPassword },
+    data: { name: 'María González', username: '222222222', password: hashedPassword },
   });
   await prisma.user.create({
-    data: { name: 'Juan Pérez', email: 'juan@test.cl', password: hashedPassword },
+    data: { name: 'Juan Pérez', username: '333333333', password: hashedPassword },
   });
   await prisma.user.create({
-    data: { name: 'Sofía Ramírez', email: 'sofia@test.cl', password: hashedPassword },
+    data: { name: 'Sofía Ramírez', username: '444444444', password: hashedPassword },
   });
 
   console.log('✅ Usuarios creados');
@@ -199,10 +199,10 @@ async function main() {
   console.log('✅ Comentarios de comunidad creados');
   console.log('\n🎉 Seed completado exitosamente!\n');
   console.log('Credenciales de acceso:');
-  console.log('  Admin:  admin@cowork.cl / admin123');
-  console.log('  User 1: maria@test.cl  / password123');
-  console.log('  User 2: juan@test.cl   / password123');
-  console.log('  User 3: sofia@test.cl  / password123');
+  console.log('  Admin:  111111111 / admin123');
+  console.log('  User 1: 222222222  / password123');
+  console.log('  User 2: 333333333   / password123');
+  console.log('  User 3: 444444444  / password123');
 }
 
 main()

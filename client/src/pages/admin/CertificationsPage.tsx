@@ -24,10 +24,10 @@ function UserCombobox({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const selected = users.find((u) => u.id === selectedId);
-  const inputVal = open ? query : selected ? `${selected.name} (${selected.email})` : query;
+  const inputVal = open ? query : selected ? `${selected.name} (${selected.username})` : query;
   const filtered = users.filter((u) => {
     const q = query.toLowerCase();
-    return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+    return u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q);
   });
 
   useEffect(() => {
@@ -45,7 +45,7 @@ function UserCombobox({
         value={inputVal}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
-        placeholder="Buscar usuaria por nombre o email..."
+        placeholder="Buscar usuaria por nombre o RUT..."
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
       />
       {open && filtered.length > 0 && (
@@ -58,7 +58,7 @@ function UserCombobox({
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
               >
                 <span className="font-medium text-gray-900">{u.name}</span>
-                <span className="ml-2 text-xs text-gray-400">{u.email}</span>
+                <span className="ml-2 text-xs text-gray-400">{u.username}</span>
               </button>
             </li>
           ))}
@@ -218,7 +218,7 @@ export default function CertificationsPage() {
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-gray-900">{selectedUser.name}</p>
-              <p className="text-sm text-gray-400">{selectedUser.email}</p>
+              <p className="text-sm text-gray-400">{selectedUser.username}</p>
             </div>
             <span className="ml-auto flex-shrink-0 text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
               {ROLE_LABELS[selectedUser.role] ?? selectedUser.role}

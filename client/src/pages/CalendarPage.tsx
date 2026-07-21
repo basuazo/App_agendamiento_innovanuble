@@ -32,11 +32,11 @@ function UserCombobox({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedUser = users.find((u) => u.id === value);
-  const inputValue = open ? query : (selectedUser ? `${selectedUser.name} (${selectedUser.email})` : query);
+  const inputValue = open ? query : (selectedUser ? `${selectedUser.name} (${selectedUser.username})` : query);
 
   const filtered = users.filter((u) => {
     const q = query.toLowerCase();
-    return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+    return u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q);
   });
 
   const handleSelect = (u: User) => {
@@ -63,7 +63,7 @@ function UserCombobox({
         value={inputValue}
         onChange={(e) => { setQuery(e.target.value); if (!open) setOpen(true); if (!e.target.value) onSelect(''); }}
         onFocus={() => { setQuery(''); setOpen(true); }}
-        placeholder="Buscar por nombre o email..."
+        placeholder="Buscar por nombre o RUT..."
         className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
       />
       {open && (
@@ -78,7 +78,7 @@ function UserCombobox({
                 className="px-3 py-2 cursor-pointer hover:bg-amber-50 text-sm"
               >
                 <span className="font-medium text-gray-800">{u.name}</span>
-                <span className="text-gray-400 text-xs ml-1">({u.email})</span>
+                <span className="text-gray-400 text-xs ml-1">({u.username})</span>
               </li>
             ))
           )}
@@ -385,6 +385,8 @@ export default function CalendarPage() {
                 onClick={() => setMoreActionsOpen((prev) => !prev)}
                 className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
                 aria-expanded={moreActionsOpen}
+                aria-haspopup="menu"
+                aria-controls="calendar-more-actions"
               >
                 Más
                 <svg className={`w-4 h-4 transition-transform ${moreActionsOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -392,12 +394,13 @@ export default function CalendarPage() {
                 </svg>
               </button>
               {moreActionsOpen && (
-                <div className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+                <div id="calendar-more-actions" role="menu" className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
                   {canManageTrainings && (
                     <button
                       type="button"
                       onClick={() => { setMoreActionsOpen(false); setEditingTraining(null); setTrainingModalOpen(true); }}
                       className="flex min-h-[44px] w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      role="menuitem"
                     >
                       Capacitación
                     </button>
@@ -407,6 +410,7 @@ export default function CalendarPage() {
                       type="button"
                       onClick={() => { setMoreActionsOpen(false); setExceptionalModalOpen(true); setSelectedDate(undefined); }}
                       className="flex min-h-[44px] w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      role="menuitem"
                     >
                       Hora Excepcional
                     </button>
@@ -416,6 +420,7 @@ export default function CalendarPage() {
                       type="button"
                       onClick={() => { setMoreActionsOpen(false); setEditingMaintenance(null); setMaintenanceModalOpen(true); setSelectedDate(undefined); }}
                       className="flex min-h-[44px] w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      role="menuitem"
                     >
                       Mantención
                     </button>
@@ -500,12 +505,14 @@ export default function CalendarPage() {
             value={filterGroup}
             onChange={(e) => setFilterGroup(e.target.value)}
             placeholder="Filtrar por agrupación o usuaria..."
-            className="min-h-[44px] w-full sm:w-64 pl-9 pr-9 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="min-h-[44px] w-full sm:w-64 pl-9 pr-11 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           {filterGroup && (
             <button
+              type="button"
               onClick={() => setFilterGroup('')}
-              className="absolute right-1.5 top-1/2 flex min-h-[44px] w-9 -translate-y-1/2 items-center justify-center text-gray-400 hover:text-gray-600"
+              className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-gray-400 hover:text-gray-600"
+              aria-label="Limpiar filtro"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -651,7 +658,11 @@ export default function CalendarPage() {
                     </span>
                     <h2 className="text-lg font-bold text-gray-900">{t.title}</h2>
                   </div>
-                  <button onClick={() => setSelectedTraining(null)} className="text-gray-400 hover:text-gray-600 transition-colors ml-4 shrink-0">
+                  <button
+                    onClick={() => setSelectedTraining(null)}
+                    className="ml-4 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    aria-label="Cerrar detalle de capacitación"
+                  >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -709,8 +720,9 @@ export default function CalendarPage() {
                               <button
                                 onClick={() => handleUnenrollFor(t, e.userId)}
                                 disabled={enrollLoading}
-                                className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40"
+                                className="flex h-11 w-11 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
                                 title="Cancelar inscripción"
+                                aria-label={`Cancelar inscripción de ${e.user.name}`}
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -842,7 +854,11 @@ export default function CalendarPage() {
                   </span>
                   <h2 className="text-lg font-bold text-gray-900">{m.title}</h2>
                 </div>
-                <button onClick={() => setSelectedMaintenance(null)} className="text-gray-400 hover:text-gray-600 transition-colors ml-4 shrink-0">
+                <button
+                  onClick={() => setSelectedMaintenance(null)}
+                  className="ml-4 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  aria-label="Cerrar detalle de mantención"
+                >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>

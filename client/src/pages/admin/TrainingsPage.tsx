@@ -24,15 +24,15 @@ function UserCombobox({
 
   // Sincroniza el texto del input cuando el valor externo se limpia
   const selectedUser = users.find((u) => u.id === value);
-  const inputValue = open ? query : (selectedUser ? `${selectedUser.name} (${selectedUser.email})` : query);
+  const inputValue = open ? query : (selectedUser ? `${selectedUser.name} (${selectedUser.username})` : query);
 
   const filtered = users.filter((u) => {
     const q = query.toLowerCase();
-    return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+    return u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q);
   });
 
   const handleSelect = (u: User) => {
-    onSelect(u.id, `${u.name} (${u.email})`);
+    onSelect(u.id, `${u.name} (${u.username})`);
     setQuery('');
     setOpen(false);
   };
@@ -62,7 +62,7 @@ function UserCombobox({
         value={inputValue}
         onChange={handleInputChange}
         onFocus={() => { setQuery(''); setOpen(true); }}
-        placeholder="Buscar por nombre o email..."
+        placeholder="Buscar por nombre o RUT..."
         className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
       />
       {open && (
@@ -77,7 +77,7 @@ function UserCombobox({
                 className="px-3 py-2 cursor-pointer hover:bg-amber-50 text-sm"
               >
                 <span className="font-medium text-gray-800">{u.name}</span>
-                <span className="text-gray-400 text-xs ml-1">({u.email})</span>
+                <span className="text-gray-400 text-xs ml-1">({u.username})</span>
               </li>
             ))
           )}
@@ -368,7 +368,7 @@ export default function TrainingsPage() {
                                   <span className="text-xs text-gray-400 w-5">{idx + 1}.</span>
                                   <div>
                                     <p className="text-sm text-gray-800">{e.user.name}</p>
-                                    <p className="text-xs text-gray-400">{e.user.email}</p>
+                                    <p className="text-xs text-gray-400">{e.user.username}</p>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">

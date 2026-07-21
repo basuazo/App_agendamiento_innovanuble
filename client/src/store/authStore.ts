@@ -7,11 +7,11 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   currentSpaceId: string | null; // SUPER_ADMIN: espacio seleccionado actualmente
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, spaceId: string, organization: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
+  register: (name: string, username: string, password: string, spaceId: string, organization: string) => Promise<void>;
   logout: () => void;
   loadUser: () => Promise<void>;
-  updateProfile: (data: { name?: string; email?: string; organization?: string; phone?: string }) => Promise<void>;
+  updateProfile: (data: { name?: string; organization?: string; phone?: string }) => Promise<void>;
   setCurrentSpace: (spaceId: string | null) => void;
 }
 
@@ -21,14 +21,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: !!localStorage.getItem('token'), // true si hay token pendiente de verificar
   currentSpaceId: localStorage.getItem('currentSpaceId'),
 
-  login: async (email, password) => {
-    const { user, token } = await authService.login(email, password);
+  login: async (username, password) => {
+    const { user, token } = await authService.login(username, password);
     localStorage.setItem('token', token);
     set({ user, token });
   },
 
-  register: async (name, email, password, spaceId, organization) => {
-    await authService.register(name, email, password, spaceId, organization);
+  register: async (name, username, password, spaceId, organization) => {
+    await authService.register(name, username, password, spaceId, organization);
     // No token returned — account requires admin verification before login
   },
 

@@ -106,7 +106,8 @@ function CloseButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 -m-1 transition-colors"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+      aria-label="Cerrar reserva"
     >
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -628,18 +629,18 @@ export default function BookingWizard({
             />
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-900">Para otra usuaria</p>
-              <p className="text-xs text-gray-500 mb-2">Busca por nombre o email</p>
+              <p className="text-xs text-gray-500 mb-2">Busca por nombre o RUT</p>
               {!state.bookingForSelf && (() => {
                 const selectedUser = adminUsers.find((u) => u.id === state.targetUserId);
                 const filtered = adminUsers.filter((u) =>
                   u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-                  u.email.toLowerCase().includes(userSearch.toLowerCase())
+                  u.username.toLowerCase().includes(userSearch.toLowerCase())
                 );
                 return (
                   <div className="relative" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="text"
-                      value={userDropdownOpen ? userSearch : (selectedUser ? `${selectedUser.name} — ${selectedUser.email}` : userSearch)}
+                      value={userDropdownOpen ? userSearch : (selectedUser ? `${selectedUser.name} — ${selectedUser.username}` : userSearch)}
                       onChange={(e) => {
                         setUserSearch(e.target.value);
                         set('targetUserId', '');
@@ -672,7 +673,7 @@ export default function BookingWizard({
                               }}
                             >
                               <span className="font-medium text-gray-800">{u.name}</span>
-                              <span className="text-gray-400 ml-1">— {u.email}</span>
+                              <span className="text-gray-400 ml-1">— {u.username}</span>
                               {u.organization && (
                                 <span className="text-gray-400 ml-1 text-xs">· {u.organization}</span>
                               )}
@@ -1077,7 +1078,8 @@ export default function BookingWizard({
                                 <button
                                   type="button"
                                   onClick={() => setQuantityFor(r.id, Math.max(1, (state.resourceQuantities[r.id] ?? 1) - 1))}
-                                  className="w-6 h-6 rounded-full border border-gray-300 text-gray-600 flex items-center justify-center text-sm hover:bg-gray-100"
+                                  className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-300 text-sm text-gray-600 hover:bg-gray-100"
+                                  aria-label={`Reducir cantidad de ${r.name}`}
                                 >−</button>
                                 <span className="text-sm font-medium w-5 text-center">
                                   {state.resourceQuantities[r.id] ?? 1}
@@ -1088,7 +1090,8 @@ export default function BookingWizard({
                                     const maxQty = av?.availableCapacity ?? r.capacity;
                                     setQuantityFor(r.id, Math.min(maxQty, (state.resourceQuantities[r.id] ?? 1) + 1));
                                   }}
-                                  className="w-6 h-6 rounded-full border border-gray-300 text-gray-600 flex items-center justify-center text-sm hover:bg-gray-100"
+                                  className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-300 text-sm text-gray-600 hover:bg-gray-100"
+                                  aria-label={`Aumentar cantidad de ${r.name}`}
                                 >+</button>
                               </div>
                             </div>

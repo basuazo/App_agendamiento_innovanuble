@@ -65,7 +65,7 @@
 
 @media (max-width: 767px) {
   button,
-  input,
+  input:not([type="checkbox"]):not([type="radio"]),
   select {
     min-height: 44px;
   }

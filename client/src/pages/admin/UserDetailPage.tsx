@@ -122,7 +122,8 @@ export default function UserDetailPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/admin/users')}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100"
+            aria-label="Volver a usuarios"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -161,7 +162,7 @@ export default function UserDetailPage() {
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 mt-3 text-sm text-gray-600">
-              <p><span className="font-medium text-gray-700">Email:</span> {user.email}</p>
+              <p><span className="font-medium text-gray-700">RUT:</span> {user.username}</p>
               {user.phone && <p><span className="font-medium text-gray-700">Teléfono:</span> {user.phone}</p>}
               {user.organization && <p><span className="font-medium text-gray-700">Agrupación:</span> {user.organization}</p>}
               <p><span className="font-medium text-gray-700">Miembro desde:</span> {new Date(user.createdAt).toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' })}</p>

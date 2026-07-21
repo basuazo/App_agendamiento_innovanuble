@@ -133,7 +133,7 @@ export default function BookingsPage() {
           (b.resource?.name ?? '').toLowerCase().includes(q) ||
           (b.groupName ?? '').toLowerCase().includes(q) ||
           b.user.name.toLowerCase().includes(q) ||
-          b.user.email.toLowerCase().includes(q)
+          b.user.username.toLowerCase().includes(q)
         )
       : byStatus;
     const groups = groupBookings(bySearch);
@@ -221,7 +221,7 @@ export default function BookingsPage() {
                     <tr key={g.key} className={faded ? 'opacity-60' : ''}>
                       <td className="px-4 py-3">
                         <p className="text-gray-900 font-medium">{g.user.name}</p>
-                        <p className="text-xs text-gray-400">{g.user.email}</p>
+                        <p className="text-xs text-gray-400">{g.user.username}</p>
                       </td>
                       <td className="px-4 py-3">
                         {g.bookings[0].groupName ? (
