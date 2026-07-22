@@ -19,7 +19,15 @@ export default function RegisterPage() {
 
   useEffect(() => {
     spaceService.getAll()
-      .then((data) => setSpaces(data.filter((s) => s.isActive)))
+      .then((data) => {
+        const activeSpaces = data.filter((s) => s.isActive);
+        setSpaces(activeSpaces);
+        if (activeSpaces.length === 1) {
+          setSpaceId(activeSpaces[0].id);
+        } else if (activeSpaces.length > 1) {
+          setSpaceId((current) => current || activeSpaces[0].id);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -138,20 +146,21 @@ export default function RegisterPage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Espacio</label>
-            <select
-              value={spaceId}
-              onChange={(e) => setSpaceId(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-            >
-              <option value="">Selecciona tu espacio...</option>
-              {spaces.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
+          {spaces.length > 1 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Espacio</label>
+              <select
+                value={spaceId}
+                onChange={(e) => setSpaceId(e.target.value)}
+                required
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+              >
+                {spaces.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <button
             type="submit"
             disabled={loading}

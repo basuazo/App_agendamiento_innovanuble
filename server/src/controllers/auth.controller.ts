@@ -10,6 +10,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, username: rawUsername, password, spaceId, organization } = req.body;
     const username = normalizeRut(rawUsername);
+    let effectiveSpaceId = spaceId;
 
     if (!name || !username || !password) {
       res.status(400).json({ error: 'RUT y contraseña son requeridos' });
@@ -21,9 +22,18 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!spaceId) {
-      res.status(400).json({ error: 'Debes seleccionar un espacio' });
-      return;
+    if (!effectiveSpaceId) {
+      const activeSpaces = await prisma.space.findMany({
+        where: { isActive: true },
+        select: { id: true },
+      });
+
+      if (activeSpaces.length === 1) {
+        effectiveSpaceId = activeSpaces[0].id;
+      } else {
+        res.status(400).json({ error: 'Debes seleccionar un espacio' });
+        return;
+      }
     }
 
     if (password.length < 6) {
@@ -31,7 +41,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const space = await prisma.space.findUnique({ where: { id: spaceId } });
+    const space = await prisma.space.findUnique({ where: { id: effectiveSpaceId } });
     if (!space || !space.isActive) {
       res.status(400).json({ error: 'El espacio seleccionado no existe o no está activo' });
       return;
@@ -45,13 +55,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     await prisma.user.create({
-      data: { name, username, password: hashedPassword, spaceId, organization: organization.trim() },
+      data: { name, username, password: hashedPassword, spaceId: effectiveSpaceId, organization: organization.trim() },
     });
 
     res.status(201).json({ message: 'Registro exitoso. Tu cuenta está pendiente de verificación por el administrador.' });
 
     // Notificar a admins y líderes comunitarias del espacio (en background)
-    notifyRolesInSpace(spaceId, ['ADMIN', 'LIDER_COMUNITARIA'], {
+    notifyRolesInSpace(effectiveSpaceId, ['ADMIN', 'LIDER_COMUNITARIA'], {
       type: 'USER_PENDING',
       title: 'Nueva usuaria pendiente de verificación',
       message: `${name} (${username}) se registró y espera verificación.`,

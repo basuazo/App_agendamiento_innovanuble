@@ -92,7 +92,7 @@ export const deleteSpace = async (req: AuthRequest, res: Response): Promise<void
 
     const space = await prisma.space.findUnique({
       where: { id },
-      include: { users: { select: { id: true } } },
+      include: { users: { where: { deletedAt: null }, select: { id: true } } },
     });
     if (!space) {
       res.status(404).json({ error: 'Espacio no encontrado' });
@@ -100,21 +100,49 @@ export const deleteSpace = async (req: AuthRequest, res: Response): Promise<void
     }
 
     if (space.users.length > 0) {
-      res.status(400).json({ error: 'No se puede eliminar un espacio con usuarias asignadas. Elimina o reasigna primero las usuarias.' });
+      res.status(400).json({ error: 'No se puede eliminar un espacio con usuarias activas. Elimina o reasigna primero las usuarias.' });
       return;
     }
 
     await prisma.$transaction(async (tx) => {
-      const [resources, trainings, categories] = await Promise.all([
+      const spaceUsers = await tx.user.findMany({ where: { spaceId: id }, select: { id: true } });
+      const userIds = spaceUsers.map((user) => user.id);
+
+      const [resources, trainings, categories, maintenances] = await Promise.all([
         tx.resource.findMany({ where: { spaceId: id }, select: { id: true } }),
-        tx.training.findMany({ where: { spaceId: id }, select: { id: true } }),
+        tx.training.findMany({
+          where: {
+            OR: [
+              { spaceId: id },
+              { createdBy: { in: userIds } },
+            ],
+          },
+          select: { id: true },
+        }),
         tx.category.findMany({ where: { spaceId: id }, select: { id: true } }),
+        tx.maintenance.findMany({
+          where: {
+            OR: [
+              { spaceId: id },
+              { createdBy: { in: userIds } },
+            ],
+          },
+          select: { id: true },
+        }),
       ]);
       const resourceIds = resources.map((resource) => resource.id);
       const trainingIds = trainings.map((training) => training.id);
       const categoryIds = categories.map((category) => category.id);
+      const maintenanceIds = maintenances.map((maintenance) => maintenance.id);
 
-      await tx.booking.deleteMany({ where: { resourceId: { in: resourceIds } } });
+      await tx.booking.deleteMany({
+        where: {
+          OR: [
+            { resourceId: { in: resourceIds } },
+            { userId: { in: userIds } },
+          ],
+        },
+      });
       await tx.trainingExemption.deleteMany({
         where: {
           OR: [
@@ -123,14 +151,40 @@ export const deleteSpace = async (req: AuthRequest, res: Response): Promise<void
           ],
         },
       });
-      await tx.trainingEnrollment.deleteMany({ where: { trainingId: { in: trainingIds } } });
+      await tx.trainingEnrollment.deleteMany({
+        where: {
+          OR: [
+            { trainingId: { in: trainingIds } },
+            { userId: { in: userIds } },
+          ],
+        },
+      });
       await tx.training.deleteMany({ where: { spaceId: id } });
-      await tx.certification.deleteMany({ where: { categoryId: { in: categoryIds } } });
+      await tx.training.deleteMany({ where: { createdBy: { in: userIds } } });
+      await tx.certification.deleteMany({
+        where: {
+          OR: [
+            { categoryId: { in: categoryIds } },
+            { userId: { in: userIds } },
+            { certifiedById: { in: userIds } },
+          ],
+        },
+      });
+      await tx.notification.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.auditLog.deleteMany({ where: { actorId: { in: userIds } } });
+      await tx.comment.deleteMany({
+        where: {
+          OR: [
+            { spaceId: id },
+            { userId: { in: userIds } },
+          ],
+        },
+      });
+      await tx.maintenance.deleteMany({ where: { id: { in: maintenanceIds } } });
       await tx.resource.deleteMany({ where: { spaceId: id } });
       await tx.category.deleteMany({ where: { spaceId: id } });
-      await tx.maintenance.deleteMany({ where: { spaceId: id } });
-      await tx.comment.deleteMany({ where: { spaceId: id } });
       await tx.businessHours.deleteMany({ where: { spaceId: id } });
+      await tx.user.deleteMany({ where: { spaceId: id } });
       await tx.space.delete({ where: { id } });
     });
 
