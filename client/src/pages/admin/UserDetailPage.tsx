@@ -118,7 +118,7 @@ export default function UserDetailPage() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/admin/users')}
@@ -129,7 +129,7 @@ export default function UserDetailPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">Perfil de Usuaria</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Perfil de Usuaria</h1>
         </div>
         <button
           onClick={handleExport}
@@ -188,7 +188,7 @@ export default function UserDetailPage() {
 
       {/* Tabs */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="flex border-b border-gray-100">
+        <div className="flex border-b border-gray-100 overflow-x-auto">
           {([
             ['bookings',        `Reservas (${bookings.length})`],
             ['trainings',       `Capacitaciones (${enrollments.length})`],
@@ -197,7 +197,7 @@ export default function UserDetailPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-3 text-sm font-medium transition-colors border-b-2 ${
+              className={`px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab
                   ? 'border-brand-600 text-brand-700'
                   : 'border-transparent text-gray-500 hover:text-gray-800'

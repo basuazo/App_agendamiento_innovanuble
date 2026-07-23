@@ -150,17 +150,17 @@ export default function CategoriesPage() {
             Gestiona las categorías de máquinas y espacios del cowork.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar categoría..."
-            className="w-52 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="w-full sm:w-52 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           <button
             onClick={openNew}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors"
+          className="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -171,7 +171,7 @@ export default function CategoriesPage() {
       </div>
 
       {inactiveCount > 0 && (
-        <div className="mb-4 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 text-sm">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 text-sm">
           <span className="text-amber-800">
             Hay {inactiveCount} categoría{inactiveCount > 1 ? 's' : ''} inactiva{inactiveCount > 1 ? 's' : ''} oculta{inactiveCount > 1 ? 's' : ''}.
           </span>

@@ -219,7 +219,7 @@ export default function TrainingsPage() {
             Gestión de sesiones y listado de inscritas
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleExport}
             disabled={exporting}

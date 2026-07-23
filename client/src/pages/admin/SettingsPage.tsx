@@ -207,7 +207,7 @@ export default function SettingsPage() {
           Bloquea un rango horario diario para colación. Se marcará en rojo en el calendario y no se podrán crear reservas en ese horario.
         </p>
         {lunchBreakEnabled && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <label className="text-xs text-gray-500 whitespace-nowrap">Desde</label>
             <select
               value={lunchBreakStart}
@@ -237,7 +237,7 @@ export default function SettingsPage() {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
         {days.map((day) => (
           <div key={day.dayOfWeek} className="px-5 py-4">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               {/* Día + toggle */}
               <div className="flex items-center gap-3 min-w-[130px]">
                 <button
@@ -262,7 +262,7 @@ export default function SettingsPage() {
 
               {/* Selectores de hora */}
               {day.isOpen ? (
-                <div className="flex items-center gap-2 flex-1 justify-end">
+                <div className="flex flex-wrap items-center gap-2 flex-1 sm:justify-end">
                   <label className="text-xs text-gray-500 whitespace-nowrap">Desde</label>
                   <select
                     value={day.openTime}

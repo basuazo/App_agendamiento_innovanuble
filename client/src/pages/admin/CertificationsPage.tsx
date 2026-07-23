@@ -1,11 +1,10 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Certification, Category, User } from '../../types';
 import { certificationService } from '../../services/certification.service';
 import { categoryService } from '../../services/category.service';
 import { userService } from '../../services/user.service';
 import { useAuthStore } from '../../store/authStore';
 import { formatDateTime } from '../../utils/dateHelpers';
-import ConfirmModal from '../../components/shared/ConfirmModal';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -88,14 +87,9 @@ export default function CertificationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [certsLoading, setCertsLoading] = useState(false);
 
-  // Otorgar permiso: qué fila está en modo "ingresar notas + confirmar"
-  const [certifyingCatId, setCertifyingCatId] = useState<string | null>(null);
-  const [certNotes, setCertNotes] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  // Revocar
-  const [revokeTarget, setRevokeTarget] = useState<Certification | null>(null);
-  const [revoking, setRevoking] = useState(false);
+  // Toggle en curso por categoría (evita doble clic en esa fila especifica)
+  const [rowSaving, setRowSaving] = useState<Record<string, boolean>>({});
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const loadBase = async () => {
     try {
@@ -133,40 +127,100 @@ export default function CertificationsPage() {
 
   const handleSelectUser = (userId: string) => {
     setSelectedUserId(userId);
-    setCertifyingCatId(null);
-    setCertNotes('');
     loadUserCerts(userId);
   };
 
-  const handleCertify = async (catId: string) => {
-    if (!selectedUserId) return;
-    setSaving(true);
+  const getErrorMsg = (err: unknown, fallback: string) =>
+    (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? fallback;
+
+  // Otorga el permiso de una categoria de inmediato (optimista, sin notas ni modal)
+  const handleGrant = async (cat: Category) => {
+    if (!selectedUserId || rowSaving[cat.id]) return;
+    setRowSaving((prev) => ({ ...prev, [cat.id]: true }));
+
+    const tempId = `temp-${cat.id}`;
+    const tempCert: Certification = {
+      id: tempId,
+      userId: selectedUserId,
+      categoryId: cat.id,
+      category: cat,
+      certifiedAt: new Date().toISOString(),
+      certifiedById: '',
+      certifier: undefined,
+    };
+    setUserCerts((prev) => [...prev, tempCert]);
+
     try {
-      await certificationService.certifyUser(selectedUserId, catId, certNotes.trim() || undefined);
-      toast.success('Permiso de uso otorgado');
-      setCertifyingCatId(null);
-      setCertNotes('');
-      loadUserCerts(selectedUserId);
+      const realCert = await certificationService.certifyUser(selectedUserId, cat.id);
+      setUserCerts((prev) => prev.map((c) => (c.id === tempId ? realCert : c)));
+      toast.success('Permiso otorgado');
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      toast.error(msg ?? 'Error al otorgar permiso');
+      setUserCerts((prev) => prev.filter((c) => c.id !== tempId));
+      toast.error(getErrorMsg(err, 'Error al otorgar permiso'));
     } finally {
-      setSaving(false);
+      setRowSaving((prev) => ({ ...prev, [cat.id]: false }));
     }
   };
 
-  const handleRevoke = async () => {
-    if (!revokeTarget || !selectedUserId) return;
-    setRevoking(true);
+  // Revoca el permiso de una categoria de inmediato (optimista, sin modal)
+  const handleRevoke = async (cat: Category) => {
+    const cert = userCerts.find((c) => c.categoryId === cat.id);
+    if (!cert || rowSaving[cat.id]) return;
+    setRowSaving((prev) => ({ ...prev, [cat.id]: true }));
+
+    setUserCerts((prev) => prev.filter((c) => c.categoryId !== cat.id));
+
     try {
-      await certificationService.revokeCertification(revokeTarget.id);
-      toast.success('Permiso de uso revocado');
-      setRevokeTarget(null);
-      loadUserCerts(selectedUserId);
-    } catch {
-      toast.error('Error al revocar');
+      await certificationService.revokeCertification(cert.id);
+      toast.success('Permiso quitado');
+    } catch (err: unknown) {
+      setUserCerts((prev) => [...prev, cert]);
+      toast.error(getErrorMsg(err, 'Error al revocar permiso'));
     } finally {
-      setRevoking(false);
+      setRowSaving((prev) => ({ ...prev, [cat.id]: false }));
+    }
+  };
+
+  const handleToggle = (cat: Category, checked: boolean) => {
+    if (checked) handleGrant(cat);
+    else handleRevoke(cat);
+  };
+
+  const handleGrantAll = async () => {
+    if (!selectedUserId) return;
+    const missing = categories.filter((cat) => !userCerts.some((c) => c.categoryId === cat.id));
+    if (missing.length === 0) return;
+    setBulkSaving(true);
+    try {
+      const results = await Promise.allSettled(missing.map((cat) => certificationService.certifyUser(selectedUserId, cat.id)));
+      const granted = results
+        .filter((r): r is PromiseFulfilledResult<Certification> => r.status === 'fulfilled')
+        .map((r) => r.value);
+      const failedCount = results.filter((r) => r.status === 'rejected').length;
+      if (granted.length > 0) setUserCerts((prev) => [...prev, ...granted]);
+      if (failedCount > 0) toast.error(`${granted.length} permisos otorgados, ${failedCount} fallaron`);
+      else toast.success('Todos los permisos otorgados');
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
+  const handleRevokeAll = async () => {
+    if (!selectedUserId || userCerts.length === 0) return;
+    setBulkSaving(true);
+    const certsToRevoke = userCerts;
+    setUserCerts([]);
+    try {
+      const results = await Promise.allSettled(certsToRevoke.map((c) => certificationService.revokeCertification(c.id)));
+      const failed = certsToRevoke.filter((_, i) => results[i].status === 'rejected');
+      if (failed.length > 0) {
+        setUserCerts(failed);
+        toast.error(`${certsToRevoke.length - failed.length} permisos quitados, ${failed.length} fallaron`);
+      } else {
+        toast.success('Todos los permisos quitados');
+      }
+    } finally {
+      setBulkSaving(false);
     }
   };
 
@@ -198,7 +252,7 @@ export default function CertificationsPage() {
         />
         {selectedUserId && (
           <button
-            onClick={() => { setSelectedUserId(null); setUserCerts([]); setCertifyingCatId(null); }}
+            onClick={() => { setSelectedUserId(null); setUserCerts([]); }}
             className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
           >
             Limpiar
@@ -225,108 +279,66 @@ export default function CertificationsPage() {
             </span>
           </div>
 
-          {/* Tabla de categorías */}
+          {/* Acciones masivas */}
+          {!certsLoading && categories.length > 0 && (
+            <div className="flex items-center gap-3 mb-4">
+              <button
+                onClick={handleGrantAll}
+                disabled={bulkSaving || categories.every((cat) => userCerts.some((c) => c.categoryId === cat.id))}
+                className="px-3 py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {bulkSaving ? 'Guardando…' : 'Otorgar todas'}
+              </button>
+              <button
+                onClick={handleRevokeAll}
+                disabled={bulkSaving || userCerts.length === 0}
+                className="px-3 py-2 text-sm font-medium rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {bulkSaving ? 'Guardando…' : 'Quitar todas'}
+              </button>
+            </div>
+          )}
+
+          {/* Checklist de categorías */}
           {certsLoading ? (
             <LoadingSpinner />
           ) : categories.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">No hay categorías en este espacio.</p>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-100">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium text-gray-600">Categoría</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-600">Estado</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-600 hidden md:table-cell">Fecha</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-600 hidden md:table-cell">Otorgado por</th>
-                      <th className="px-4 py-3 text-right font-medium text-gray-600">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {categories.map((cat) => {
-                      const cert = userCerts.find((c) => c.categoryId === cat.id);
-                      const isCertifying = certifyingCatId === cat.id;
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+              {categories.map((cat) => {
+                const cert = userCerts.find((c) => c.categoryId === cat.id);
+                const isRowSaving = !!rowSaving[cat.id];
+                const disabled = isRowSaving || bulkSaving;
 
-                      return (
-                        <Fragment key={cat.id}>
-                          <tr>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: cat.color }}
-                                />
-                                <span className="font-medium text-gray-900">{cat.name}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              {cert ? (
-                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                                  <span className="text-emerald-500">✓</span>
-                                  Con permiso
-                                </span>
-                              ) : (
-                                <span className="text-xs text-gray-400">Sin permiso de uso</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">
-                              {cert ? formatDateTime(cert.certifiedAt) : '—'}
-                            </td>
-                            <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">
-                              {cert?.certifier?.name ?? '—'}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              {cert ? (
-                                <button
-                                  onClick={() => setRevokeTarget(cert)}
-                                  className="text-xs text-red-400 hover:text-red-600 font-medium transition-colors"
-                                >
-                                  Revocar
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setCertifyingCatId(isCertifying ? null : cat.id);
-                                    setCertNotes('');
-                                  }}
-                                  className="text-xs text-brand-600 hover:text-brand-800 font-medium transition-colors"
-                                >
-                                  {isCertifying ? 'Cancelar' : 'Otorgar permiso'}
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-
-                          {/* Fila expandida: notas + confirmar */}
-                          {isCertifying && (
-                            <tr key={`${cat.id}-certify`} className="bg-brand-50">
-                              <td colSpan={5} className="px-4 py-3">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                                  <input
-                                    type="text"
-                                    value={certNotes}
-                                    onChange={(e) => setCertNotes(e.target.value)}
-                                    placeholder="Notas opcionales (ej: aprobó prueba el 03/04/2026)"
-                                    className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                                  />
-                                  <button
-                                    onClick={() => handleCertify(cat.id)}
-                                    disabled={saving}
-                                    className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-60 transition-colors whitespace-nowrap"
-                                  >
-                                    {saving ? 'Guardando...' : 'Confirmar permiso de uso'}
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                return (
+                  <label
+                    key={cat.id}
+                    className={`flex items-center gap-3 px-4 py-3 min-h-[44px] ${disabled ? 'opacity-60' : 'cursor-pointer'}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!cert}
+                      disabled={disabled}
+                      onChange={(e) => handleToggle(cat, e.target.checked)}
+                      className="w-6 h-6 rounded border-gray-300 text-brand-600 focus:ring-brand-500 flex-shrink-0"
+                    />
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-gray-900">{cat.name}</p>
+                      {cert && (
+                        <p className="text-xs text-gray-400 truncate">
+                          {formatDateTime(cert.certifiedAt)}
+                          {cert.certifier?.name ? ` · ${cert.certifier.name}` : ''}
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           )}
         </>
@@ -337,18 +349,6 @@ export default function CertificationsPage() {
         <div className="text-center py-16 text-gray-400 text-sm">
           Selecciona una usuaria para ver y gestionar sus permisos de uso.
         </div>
-      )}
-
-      {/* Modal de confirmación de revocación */}
-      {revokeTarget && (
-        <ConfirmModal
-          title="Revocar permiso de uso"
-          message={`¿Estás segura que deseas revocar el permiso de uso en "${revokeTarget.category?.name}" de ${selectedUser?.name}? La usuaria necesitará un nuevo permiso para reservar directamente.`}
-          variant="danger"
-          confirmLabel={revoking ? 'Revocando...' : 'Revocar'}
-          onConfirm={handleRevoke}
-          onCancel={() => setRevokeTarget(null)}
-        />
       )}
     </div>
   );

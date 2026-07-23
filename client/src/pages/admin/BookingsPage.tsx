@@ -205,10 +205,10 @@ export default function BookingsPage() {
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <SortableHeader label="Usuario" sortKey="user" sort={sort} onSort={handleSort} className="text-left" />
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Agrupación</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600 hidden md:table-cell">Agrupación</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Máquinas</th>
                   <SortableHeader label="Fecha y Hora" sortKey="startTime" sort={sort} onSort={handleSort} className="text-left" />
-                  <SortableHeader label="Propósito" sortKey="purpose" sort={sort} onSort={handleSort} className="text-left" />
+                  <SortableHeader label="Propósito" sortKey="purpose" sort={sort} onSort={handleSort} className="text-left hidden md:table-cell" />
                   <SortableHeader label="Estado" sortKey="status" sort={sort} onSort={handleSort} className="text-center" />
                   <th className="px-4 py-3 text-right font-medium text-gray-600">Acciones</th>
                 </tr>
@@ -223,7 +223,7 @@ export default function BookingsPage() {
                         <p className="text-gray-900 font-medium">{g.user.name}</p>
                         <p className="text-xs text-gray-400">{g.user.username}</p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 hidden md:table-cell">
                         {g.bookings[0].groupName ? (
                           <p className="text-sm font-medium text-gray-800">{g.bookings[0].groupName}</p>
                         ) : (
@@ -253,7 +253,7 @@ export default function BookingsPage() {
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                         {formatDateTime(g.startTime)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 hidden md:table-cell">
                         <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                           {PURPOSE_LABELS[g.purpose]}
                         </span>
